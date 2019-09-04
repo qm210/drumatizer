@@ -10,6 +10,8 @@ class MayRenderer(QWidget):
 
     shouldsave = pyqtSignal()
 
+    texsize = 512
+
     def __init__(self):
         super().__init__()
         self.initState()
@@ -31,13 +33,19 @@ class MayRenderer(QWidget):
         self.codeWatchFileBar = QHBoxLayout()
         self.renderBar = QHBoxLayout()
         self.playbackBar = QHBoxLayout()
+        self.renderGroup = QGroupBox()
+        self.renderGroupLayout = QVBoxLayout()
+        self.renderGroupLayout.addLayout(self.renderBar)
+        self.renderGroupLayout.addLayout(self.playbackBar)
+        self.renderGroup.setLayout(self.renderGroupLayout)
+        self.renderGroup.setObjectName("renderGroup")
 
-        self.codeBox = QGroupBox('GLSL Code')
-        self.buttonCopy = QPushButton('--> Clipboard', self)
+        self.codeGroup = QGroupBox()
+        self.buttonCopy = QPushButton('↬ Clipboard', self)
         self.buttonCopy.clicked.connect(self.copyToClipboard)
-        self.buttonPaste = QPushButton('Paste from Clipboard', self)
+        self.buttonPaste = QPushButton('Paste ↴', self)
         self.buttonPaste.clicked.connect(self.pasteClipboard)
-        self.buttonClear = QPushButton('X Clear', self)
+        self.buttonClear = QPushButton('X', self)
         self.buttonClear.clicked.connect(self.clearEditor)
         self.codeEditor = QPlainTextEdit(self)
         self.codeEditor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
@@ -51,10 +59,12 @@ class MayRenderer(QWidget):
 
         self.renderButton = QPushButton(self)
         self.renderButton.clicked.connect(self.pressRenderShader)
-        self.renderLengthBox = QLineEdit(self)
-        self.renderLengthBox.setPlaceholderText('seconds')
-        self.renderLengthBox.setToolTip('seconds')
-        self.renderLengthBox.setText('60')
+        self.renderLengthBox = QDoubleSpinBox(self)
+        self.renderLengthBox.setMinimum(0)
+        self.renderLengthBox.setValue(20)
+        self.renderLengthBox.setSingleStep(1)
+        self.renderLengthBox.setSuffix(' sec')
+        self.renderLengthBox.setToolTip('render length')
         self.renderVolumeSlider = QSlider(Qt.Horizontal)
         self.renderVolumeSlider.setMaximum(100)
         self.renderVolumeSlider.setValue(self.initVolume * 100)
@@ -78,14 +88,14 @@ class MayRenderer(QWidget):
         self.codeWatchFileBar.addWidget(self.watchFileCheckBox)
         self.codeWatchFileBar.addWidget(self.watchFileNameBox)
         self.codeWatchFileBar.addWidget(self.buttonWatchFile)
+        self.codeLayout.addWidget(QLabel('GLSL code'))
         self.codeLayout.addLayout(self.codeButtonBar)
         self.codeLayout.addWidget(self.codeEditor)
         self.codeLayout.addLayout(self.codeWatchFileBar)
-        self.codeBox.setLayout(self.codeLayout)
+        self.codeGroup.setLayout(self.codeLayout)
 
-        self.mainLayout.addWidget(self.codeBox)
-        self.mainLayout.addLayout(self.renderBar)
-        self.mainLayout.addLayout(self.playbackBar)
+        self.mainLayout.addWidget(self.codeGroup)
+        self.mainLayout.addWidget(self.renderGroup)
 
         self.updatePlayingUI()
 
@@ -213,15 +223,15 @@ void main()
             raise
 
         print(shaderSource)
-        print(self.renderLengthBox.text())
+        print(self.renderLengthBox.value())
 
         try:
-            duration = float(self.renderLengthBox.text())
+            duration = self.renderLengthBox.value()
         except:
             print('couldn\'t read duration field. take 10secs.')
             duration = 10
 
-        glwidget = SFXGLWidget(self, self.audioformat.sampleRate(), duration, 512)
+        glwidget = SFXGLWidget(self, self.audioformat.sampleRate(), duration, self.texsize)
 
         glwidget.show()
         self.log = glwidget.newShader(shaderSource)
@@ -233,7 +243,7 @@ void main()
         if self.music == None :
             return
 
-        self.renderLengthBox.setText(str(float(round(glwidget.duration_real, 2)) - .01))
+        self.renderLengthBox.setValue(round(glwidget.duration_real, 2) - .01)
 
         self.bytearray = QByteArray(self.music)
 

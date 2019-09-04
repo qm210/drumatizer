@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 #############################################################
 #
 #       the new aMaySyn Drumatizer (Matzes Drum Editor)
@@ -14,6 +13,7 @@ from PyQt5.QtCore import Qt, QTimer
 
 from mayDrumatizer import MayDrumatizer
 from mayRenderer import MayRenderer
+from mayStyle import mayStyle
 
 class MainWindow(QWidget):
 
@@ -47,6 +47,8 @@ class MainWindow(QWidget):
         # ... moar widscheddddz!
 
         self.initLayouts()
+
+        self.setStyleSheet(mayStyle)
 
     def initLayouts(self):
         self.mainSplit = QHBoxLayout()
