@@ -3,24 +3,23 @@ from PyQt5 import QtWidgets, QtCore
 
 class SettingsDialog(QtWidgets.QDialog):
 
-    def __init__(self, parent, *args, **kwargs):
+    EDIT, NEW, CLONE = range(3)
+
+    def __init__(self, parent, envelope, *args, **kwargs):
         # catch extra parameters, e.g. for type of envelope, here
-        self.type = kwargs.pop('type') if 'type' in kwargs else None
-        self.name = kwargs.pop('name') if 'name' in kwargs else None
+        self.mode = kwargs.pop('mode') if 'mode' in kwargs else SettingsDialog.EDIT
+        self.type = envelope.type
+        self.name = envelope.name if self.mode == SettingsDialog.EDIT else ''
         super(SettingsDialog, self).__init__(parent, *args, **kwargs)
         # self.setAttribute(QtCore.Qt.WA_DeleteOnClose) # <-- gives RuntimeError
         # self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.FramelessWindowHint)
 
-        if self.name:
-            self.mode = 'edit'
+        if self.mode == SettingsDialog.EDIT:
             self.setWindowTitle('Edit {}'.format(self.type))
         else:
-            self.mode = 'new'
             self.setWindowTitle('New {} env.'.format(self.type))
 
-        self.PRECISION = 3
-
-        self.cloneButton = QtWidgets.QPushButton('Clone Current', self)
+        self.cloneButton = QtWidgets.QPushButton('Clone Current', self) # TODO: handle case "there is no current" :P
         self.buttonBox = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel, self)
         self.buttonBox.addButton(self.cloneButton, QtWidgets.QDialogButtonBox.AcceptRole)
 
@@ -41,22 +40,17 @@ class SettingsDialog(QtWidgets.QDialog):
         self.editPointNumber = QtWidgets.QSpinBox(self)
         self.editPointNumber.setSuffix(' points')
         if self.type == 'frequency':
-            self.editPointNumber.setValue(3)
             self.editPointNumber.setRange(1, 3)
         elif self.type == 'amplitude':
-            self.editPointNumber.setValue(4)
             self.editPointNumber.setRange(2, 10)
         else:
-            self.editPointNumber.setValue(4)
             self.editPointNumber.setRange(1, 10)
+        self.editPointNumber.setValue(envelope.pointNumber())
         self.layout.addWidget(self.editPointNumber)
-
-        # TODO: implement this, until then -- greyed out!
-        self.editPointNumber.setEnabled(False)
 
         self.editSinglePointValue = QtWidgets.QDoubleSpinBox(self)
         self.editSinglePointValue.setPrefix('const value = ')
-        self.editSinglePointValue.setValue(1)
+        self.editSinglePointValue.setValue(envelope.points[0].value)
         self.editSinglePointValue.setDecimals(3)
         self.editSinglePointValue.setRange(1e-3, 2e4)
         self.editSinglePointValue.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
@@ -66,6 +60,9 @@ class SettingsDialog(QtWidgets.QDialog):
 
         self.verticalSpacer = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout.addItem(self.verticalSpacer)
+
+        # TODO: "What to randomize..?" Times? Values? Both?
+        # TODO: change "maxTime", "maxValue"..?
 
         self.assignToLayerChkBox = QtWidgets.QCheckBox('Assign to current layer now', self)
         self.layout.addWidget(self.assignToLayerChkBox)
@@ -88,7 +85,7 @@ class SettingsDialog(QtWidgets.QDialog):
         return self.assignToLayerChkBox.isChecked()
 
     def cloneCurrent(self):
-        self.clone = True
+        self.mode = SettingsDialog.CLONE
         self.accept()
 
     def toggleSinglePoint(self):

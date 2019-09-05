@@ -37,7 +37,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
         self.AXIS_TMARGIN = 0.033
         self.AXIS_BMARGIN = 0.15
         self.POINTSIZE = 0.05
-        self.POINTSIZE_PROX = 0.01
+        self.POINTSIZE_PROX = 0.03
         self.LABEL_LMARGIN = 0.06
         self.LABEL_BMARGIN = 0.03
         # colors, pens, fonts
@@ -167,21 +167,24 @@ class EnvelopeWidget(QtWidgets.QWidget):
         return round(max(time, self.minTime), 2), round(value if value > self.minValue else self.minValue, 2)
 
 
-    def findPointsNearby(self, coordX, coordY):
-        pointsNearby = []
+    def findNextNeighbor(self, coordX, coordY):
+        nextNeighbor = None
+        minDistance = None
         for p in self.points:
             pX, pY = self.getCoordinatesOfDimensions(p.time, p.value)
             distance = sqrt( pow(pX - coordX, 2) + pow(pY - coordY, 2) )
             if distance < self.POINTSIZE_PROX * self.qrect.width():
-                pointsNearby.append(p)
-        return pointsNearby
+                if nextNeighbor is None or distance < minDistance:
+                    nextNeighbor = p
+                    minDistance = distance
+        return nextNeighbor
 
 
     def mousePressEvent(self, event):
-        pointsNearby = self.findPointsNearby(event.pos().x(), event.pos().y())
-        if len(pointsNearby) != 1:
+        nextNeighbor = self.findNextNeighbor(event.pos().x(), event.pos().y())
+        if nextNeighbor is None:
             return
-        self.draggingPoint = pointsNearby[0]
+        self.draggingPoint = nextNeighbor
         self.draggingPointOriginalTime = self.draggingPoint.time
         self.draggingPointOriginalValue = self.draggingPoint.value
 
