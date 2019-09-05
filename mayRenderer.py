@@ -12,8 +12,10 @@ class MayRenderer(QWidget):
 
     texsize = 512
 
-    def __init__(self):
+    def __init__(self, parent):
         super().__init__()
+        self.parent = parent
+
         self.initState()
         self.initUI()
         self.initAudio()

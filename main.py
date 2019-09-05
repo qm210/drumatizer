@@ -44,8 +44,8 @@ class MainWindow(QWidget):
         self.autosaveInterval = 30e3 # every 30 sec
 
     def initUI(self):
-        self.drumWidget = MayDrumatizer()
-        self.renderWidget = MayRenderer()
+        self.drumWidget = MayDrumatizer(self)
+        self.renderWidget = MayRenderer(self)
         # ... moar widscheddddz!
 
         self.initLayouts()
@@ -66,6 +66,8 @@ class MainWindow(QWidget):
         print('mock autosave...')
 
 if __name__ == '__main__':
-    App = QApplication(sys.argv)
+    app = QApplication(sys.argv)
     window = MainWindow()
-    sys.exit(App.exec_())
+    returnCode = app.exec_()
+    # print('\n'.join(repr(w) for w in app.allWidgets()))
+    sys.exit(returnCode)

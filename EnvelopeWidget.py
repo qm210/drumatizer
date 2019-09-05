@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QRect
 from PyQt5.QtGui import QColor
 from math import pow, sqrt, log, exp
 
-from EnvelopeModel import *
+#from EnvelopeModel import *
 from DoubleInputDialog import DoubleInputDialog
 import mayStyle
 
@@ -13,8 +13,9 @@ class EnvelopeWidget(QtWidgets.QWidget):
 
     # pointsChanged = pyqtSignal()
 
-    def __init__(self, points = None):
+    def __init__(self, parent, points = None):
         super().__init__()
+        self.parent = parent
         self.qrect = QRect()
 
         self.points = points or []
@@ -87,9 +88,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
                 else:
                     path.lineTo(coordX, coordY)
 
-            if self.points[-1].value > 1e-3:
-                path.lineTo(x + w, coordY)
-
+            path.lineTo(x + w, coordY)
             qp.drawPath(path)
 
         qp.end()
@@ -113,13 +112,8 @@ class EnvelopeWidget(QtWidgets.QWidget):
 
 
     def loadEnvelope(self, envelope):
-        self.points = envelope.points
+        self.points = envelope.points if envelope else []
         self.update()
-
-
-    def addPoint(self, time, value, fixedTime = False, fixedValue = False, name = None):
-        self.points.append(EnvelopePoint(time, value, fixedTime, fixedValue, name = name))
-        print("DEPRECATED: addPoint is temporary and will be removed!")
 
 
     def setDimensions(self, maxTime = None, maxValue = None, minTime = None, minValue = None, logValue = None):
@@ -169,7 +163,8 @@ class EnvelopeWidget(QtWidgets.QWidget):
             valueFactor = -self.qrect.height() * anti_VMargin / (self.maxValue - self.minValue)
             valueOffset = self.qrect.bottom() - self.qrect.height() * self.AXIS_BMARGIN
             value = self.minValue + (coordY - valueOffset) / valueFactor
-        return (round(max(time, self.minTime), 3), round(max(value, self.minValue), 3))
+            # TODO: something weird happens in this case with rounding the value to minValue, close to zero... wtf??
+        return round(max(time, self.minTime), 2), round(value if value > self.minValue else self.minValue, 2)
 
 
     def findPointsNearby(self, coordX, coordY):
@@ -191,9 +186,10 @@ class EnvelopeWidget(QtWidgets.QWidget):
         self.draggingPointOriginalValue = self.draggingPoint.value
 
         if event.button() == Qt.RightButton:
-            inputDialog = DoubleInputDialog(time = self.draggingPoint.time, value = self.draggingPoint.value, maxValue = self.maxValue)
-            time, value = inputDialog.open()
-            if time and value:
+            inputDialog = DoubleInputDialog(self, maxValue = self.maxValue, point = self.draggingPoint)
+            if inputDialog.exec_():
+                time = round(inputDialog.timeBox.value(), inputDialog.precision)
+                value = round(inputDialog.valueBox.value(), inputDialog.precision)
                 self.draggingPoint.dragTo(time, value)
                 self.finishPointChange()
 

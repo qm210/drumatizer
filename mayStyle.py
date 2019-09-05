@@ -27,11 +27,9 @@ QGroupBox::title {
     color: DEFAULT_TEXTCOLOR;
 }
 
-
-QLabel, QCheckBox, QSlider {
+QLabel, QCheckBox, QSlider, QDialog {
     background-color: GROUP_BGCOLOR;
     color: DEFAULT_TEXTCOLOR;
-
 }
 
 QPushButton {
@@ -44,6 +42,10 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QListView {
     background-color: FIELD_BGCOLOR;
     color: DEFAULT_TEXTCOLOR;
     selection-background-color: BUTTON_BGCOLOR;
+}
+
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {
+    background-color: #302040;
 }
 
 QListView::item {
