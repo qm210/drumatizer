@@ -30,6 +30,8 @@ class MainWindow(QWidget):
         self.timerAutosave.start(self.autosaveInterval)
         self.renderWidget.shouldsave.connect(self.autosave)
 
+        self.autoload()
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.close()
@@ -47,7 +49,6 @@ class MainWindow(QWidget):
         # ... moar widscheddddz!
 
         self.initLayouts()
-
         self.setStyleSheet(mayStyle)
 
     def initLayouts(self):
@@ -57,6 +58,9 @@ class MainWindow(QWidget):
         self.mainSplit.addWidget(self.renderWidget, 33)
 
         self.setLayout(self.mainSplit)
+
+    def autoload(self):
+        print('mock autload...')
 
     def autosave(self):
         print('mock autosave...')

@@ -40,10 +40,14 @@ QPushButton {
     font: 15px bold;
 }
 
-QListWidget, QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QListView {
     background-color: FIELD_BGCOLOR;
     color: DEFAULT_TEXTCOLOR;
     selection-background-color: BUTTON_BGCOLOR;
+}
+
+QListView::item {
+    height: 17px;
 }
 
 /* damn u, KDE or whoever! */

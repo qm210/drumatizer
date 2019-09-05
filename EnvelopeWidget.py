@@ -4,39 +4,29 @@ from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QRect
 from PyQt5.QtGui import QColor
 from math import pow, sqrt, log, exp
 
+from EnvelopeModel import *
 from DoubleInputDialog import DoubleInputDialog
-from mayStyle import *
+import mayStyle
 
-class EnvelopePoint():
-
-    def __init__(self, time = 0, value = 0, fixedTime = False, fixedValue = False, name = None):
-        self.time = time
-        self.value = value
-        self.fixedTime = fixedTime
-        self.fixedValue = fixedValue
-        self.name = name
-
-    def dragTo(self, time = None, value = None):
-        if time and not self.fixedTime:
-            self.time = time
-        if value and not self.fixedValue:
-            self.value = value
-
-    def __repr__(self):
-        return str(self.name) + '(' + ('FIX ' if self.fixedTime else '') + str(self.time) + ', ' + ('FIX ' if self.fixedValue else '') + str(self.value) + ')'
 
 class EnvelopeWidget(QtWidgets.QWidget):
 
-    # clickedPoint = pyqtSignal(int, int) # don't need this quite yet
+    # pointsChanged = pyqtSignal()
 
     def __init__(self, points = None):
         super().__init__()
+        self.qrect = QRect()
+
         self.points = points or []
         self.minTime = 0
         self.minValue = 0
         self.maxTime = 1
         self.maxValue = 1
         self.logValue = False
+
+        self.draggingPoint = None
+        self.draggingPointOriginalTime = None
+        self.draggingPointOriginalValue = None
 
         # drawing constants
         self.RECT_HMARGIN = 0.0
@@ -47,24 +37,16 @@ class EnvelopeWidget(QtWidgets.QWidget):
         self.AXIS_BMARGIN = 0.15
         self.POINTSIZE = 0.05
         self.POINTSIZE_PROX = 0.01
-
         self.LABEL_LMARGIN = 0.06
         self.LABEL_BMARGIN = 0.03
-
-        # colors and pens
-        self.BGCOLOR = QColor(*group_bgcolor)
-        self.TEXTCOLOR = QColor(*default_textcolor)
+        # colors, pens, fonts
+        self.BGCOLOR = QColor(*mayStyle.group_bgcolor)
+        self.TEXTCOLOR = QColor(*mayStyle.default_textcolor)
         self.AXIS_PEN = QtGui.QPen(self.TEXTCOLOR, 3)
         self.POINT_PEN = QtGui.QPen(self.TEXTCOLOR, 1.5)
-
         self.TEXT_FONT = QtGui.QFont("Roboto", 12)
         self.LABEL_FONT = QtGui.QFont("Roboto Condensed", 9)
 
-        self.qrect = QRect()
-
-        self.draggingPoint = None
-        self.draggingPointOriginalTime = None
-        self.draggingPointOriginalValue = None
 
     def paintEvent(self, event):
         self.qrect = event.rect()
@@ -112,6 +94,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
 
         qp.end()
 
+
     def drawText(self, qp, x, y, flags, text):
         size = 32767
         y -= size
@@ -128,9 +111,16 @@ class EnvelopeWidget(QtWidgets.QWidget):
         rect = QtCore.QRectF(x, y, size, size)
         qp.drawText(rect, flags, text)
 
+
+    def loadEnvelope(self, envelope):
+        self.points = envelope.points
+        self.update()
+
+
     def addPoint(self, time, value, fixedTime = False, fixedValue = False, name = None):
         self.points.append(EnvelopePoint(time, value, fixedTime, fixedValue, name = name))
-        print(self.points)
+        print("DEPRECATED: addPoint is temporary and will be removed!")
+
 
     def setDimensions(self, maxTime = None, maxValue = None, minTime = None, minValue = None, logValue = None):
         if maxTime:
@@ -146,7 +136,8 @@ class EnvelopeWidget(QtWidgets.QWidget):
             if self.logValue and self.minValue == 0:
                 print("EnvelopeWidget can't have logarithmic axis when minimum is zero..!")
                 self.logValue = False
-        self.repaint()
+        self.update()
+
 
     def getCoordinatesOfDimensions(self, time, value):
         anti_HMargin = 1 - self.AXIS_LMARGIN - self.AXIS_RMARGIN
@@ -160,6 +151,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
             coordY = self.qrect.bottom() - self.qrect.height() * (self.AXIS_BMARGIN + anti_VMargin * (value - self.minValue) / (self.maxValue - self.minValue))
 
         return (coordX, coordY)
+
 
     def getDimensionsOfCoordinates(self, coordX, coordY):
         anti_HMargin = 1 - self.AXIS_LMARGIN - self.AXIS_RMARGIN
@@ -178,6 +170,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
             valueOffset = self.qrect.bottom() - self.qrect.height() * self.AXIS_BMARGIN
             value = self.minValue + (coordY - valueOffset) / valueFactor
         return (round(max(time, self.minTime), 3), round(max(value, self.minValue), 3))
+
 
     def findPointsNearby(self, coordX, coordY):
         pointsNearby = []
@@ -202,7 +195,8 @@ class EnvelopeWidget(QtWidgets.QWidget):
             time, value = inputDialog.open()
             if time and value:
                 self.draggingPoint.dragTo(time, value)
-                self.enforceDragValidity()
+                self.finishPointChange()
+
 
     def mouseMoveEvent(self, event):
         if self.draggingPoint:
@@ -210,24 +204,26 @@ class EnvelopeWidget(QtWidgets.QWidget):
             self.draggingPoint.dragTo(newTime, newValue)
             self.repaint()
 
-    def mouseReleaseEvent(self, event):
-        self.enforceDragValidity()
-        self.draggingPoint = None
-        self.repaint()
 
-    def enforceDragValidity(self):
+    def mouseReleaseEvent(self, event):
+        self.finishPointChange()
+        self.draggingPoint = None
+        self.update()
+
+
+    def finishPointChange(self):
         if self.draggingPoint:
-            time = self.draggingPoint.time
-            value = self.draggingPoint.value
-            draggingPointIndex = self.points.index(self.draggingPoint)
-            if draggingPointIndex > 0 and self.points[draggingPointIndex - 1].time > time \
-                or draggingPointIndex < len(self.points) - 1 and self.points[draggingPointIndex + 1].time < time \
-                or self.isOutsideOfWidget(time, value):
+            if any(point.time >= nextPoint.time for point, nextPoint in zip(self.points, self.points[1:])) \
+                or self.isOutsideOfWidget(*self.draggingPoint.values()):
                     self.draggingPoint.dragTo(self.draggingPointOriginalTime, self.draggingPointOriginalValue)
+#            else:
+#                self.pointsChanged.emit()
+
 
     def isOutsideOfWidget(self, time, value):
         coordX, coordY = self.getCoordinatesOfDimensions(time, value)
         return coordX < self.qrect.left() or coordX > self.qrect.right() or coordY < self.qrect.top() or coordY > self.qrect.bottom()
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)

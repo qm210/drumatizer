@@ -1,6 +1,7 @@
 from PyQt5.QtCore import QAbstractListModel, Qt
 
-class DrumModelItem:
+
+class Drum:
 
     def __init__(self):
         self.name = 'Matzes Liebling'
@@ -20,13 +21,13 @@ class DrumModelItem:
 
 class DrumModel(QAbstractListModel):
 
-    def __init__(self, *args, items = None, **kwargs):
+    def __init__(self, *args, drums = None, **kwargs):
         super(DrumModel, self).__init__(*args, **kwargs)
-        self.items = items or []
+        self.drums = drums or []
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.items[index.row()].name
+            return self.drums[index.row()].name
 
     def rowCount(self, index):
-        return len(self.items)
+        return len(self.drums)

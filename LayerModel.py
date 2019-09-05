@@ -3,7 +3,8 @@ from PyQt5.QtCore import QAbstractListModel, Qt
 layerTypes = ['Sine Oscillator', 'Saw Oscillator', 'Square Oscillator', 'Triangle Osciallator', 'White Pseudonoise', 'Perlin Noise']
 distTypes = ['Overdrive', 'Waveshape', 'FM', 'Lo-Fi']
 
-class LayerModelItem:
+
+class Layer:
 
     def __init__(self):
         self.name = 'QMs Liebling-slayer'
@@ -15,7 +16,8 @@ class LayerModelItem:
         self.distParam = None
         self.volume = 1
         self.mute = False
-        # each layer holds an envelope of each kind
+        # TODO: change stereo-delay per sample -- extend the synth in order to assemble L and R separately?
+        # for now, can just apply chorus in .may language separately
 
     def __repr__(self):
         if self.mute:
@@ -26,13 +28,13 @@ class LayerModelItem:
 
 class LayerModel(QAbstractListModel):
 
-    def __init__(self, *args, items = None, **kwargs):
+    def __init__(self, *args, layers = None, **kwargs):
         super(LayerModel, self).__init__(*args, **kwargs)
-        self.items = items or []
+        self.layers = layers or []
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.items[index.row()].name
+            return self.layers[index.row()].name
 
     def rowCount(self, index):
-        return len(self.items)
+        return len(self.layers)
