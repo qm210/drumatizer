@@ -1,6 +1,12 @@
+#########################################################################
+## Drumatize Section of Drumatizer (development started at 2019/09/03)
+## -- Renderer Section was written some days before... ;)
+##
+## by QM / Team210
+#########################################################################
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, QItemSelectionModel
-from random import choice
 
 from DrumModel import *
 from LayerModel import *
@@ -24,30 +30,29 @@ class MayDrumatizer(QWidget):
         self.initData()
 
     def initLayouts(self):
-        # preset widget
-        self.presetList = QComboBox()
-        self.presetList.addItem('<no preset stored>')
-        self.preset_BtnAdd = QPushButton('+')
-        self.preset_BtnClone = QPushButton('C')
-        self.preset_BtnDel = QPushButton('–')
-        self.preset_BtnEdit = QPushButton('...')
-        self.preset_BtnExport = QPushButton('↗')
-        self.preset_BtnImport = QPushButton('↘')
-        self.preset_BtnRender = QPushButton('Render >>')
+        # drum widget
+        self.drumList = QComboBox()
+        self.drum_BtnAdd = QPushButton('+')
+        self.drum_BtnClone = QPushButton('C')
+        self.drum_BtnDel = QPushButton('–')
+        self.drum_BtnEdit = QPushButton('...')
+        self.drum_BtnExport = QPushButton('↗')
+        self.drum_BtnImport = QPushButton('↘')
+        self.drum_BtnRender = QPushButton('Render >>')
 
-        self.presetLayout = QHBoxLayout()
-        self.presetLayout.addWidget(QLabel('Preset:'))
-        self.presetLayout.addWidget(self.presetList, 4)
-        self.presetLayout.addWidget(self.preset_BtnAdd)
-        self.presetLayout.addWidget(self.preset_BtnClone)
-        self.presetLayout.addWidget(self.preset_BtnDel)
-        self.presetLayout.addWidget(self.preset_BtnEdit)
-        self.presetLayout.addWidget(self.preset_BtnExport)
-        self.presetLayout.addWidget(self.preset_BtnImport)
-        self.presetLayout.addWidget(self.preset_BtnRender)
+        self.drumLayout = QHBoxLayout()
+        self.drumLayout.addWidget(QLabel('Drum:'))
+        self.drumLayout.addWidget(self.drumList, 4)
+        self.drumLayout.addWidget(self.drum_BtnAdd)
+        self.drumLayout.addWidget(self.drum_BtnClone)
+        self.drumLayout.addWidget(self.drum_BtnDel)
+        self.drumLayout.addWidget(self.drum_BtnEdit)
+        self.drumLayout.addWidget(self.drum_BtnExport)
+        self.drumLayout.addWidget(self.drum_BtnImport)
+        self.drumLayout.addWidget(self.drum_BtnRender)
 
-        self.presetGroup = QGroupBox()
-        self.presetGroup.setLayout(self.presetLayout)
+        self.drumGroup = QGroupBox()
+        self.drumGroup.setLayout(self.drumLayout)
 
         # layer widget
         self.layerMainLayout = QHBoxLayout()
@@ -64,7 +69,6 @@ class MayDrumatizer(QWidget):
         self.layerEditorType = QComboBox()
         self.layerEditorType.addItems(layerTypes)
         self.layerEditorType.setMinimumWidth(200)
-
         self.layerChooseAmplEnvList = QComboBox()
         self.layerChooseAmplEnvList.setMinimumWidth(200)
         self.layerChooseFreqEnvList = QComboBox()
@@ -76,29 +80,38 @@ class MayDrumatizer(QWidget):
         self.layerChooseDistEnvListLayout.addWidget(self.layerChooseDistEnvList)
         self.layerChooseDistEnvListLayout.addStretch()
         self.layerChooseDistEnvListLayout.addWidget(self.layerChooseDistOff)
+        self.layerEditorVolumeSlider = QSlider(Qt.Horizontal)
+        self.layerEditorVolumeSlider.setValue(100)
+        self.layerEditorVolumeSlider.setRange(0, 200)
+        self.layerEditorVolumeSpacer = QLabel('  ')
+        self.layerEditorVolumeLabel = QLabel('100%')
+        self.layerEditorVolumeLayout = QHBoxLayout()
+        self.layerEditorVolumeLayout.addWidget(self.layerEditorVolumeSlider)
+        self.layerEditorVolumeLayout.addWidget(self.layerEditorVolumeSpacer)
+        self.layerEditorVolumeLayout.addWidget(self.layerEditorVolumeLabel)
 
         self.layerEditorLayout.addRow('Layer Name:', self.layerEditorName)
         self.layerEditorLayout.addRow('Layer Type:', self.layerEditorType)
         self.layerEditorLayout.addRow('Amplitude Env.:', self.layerChooseAmplEnvList)
         self.layerEditorLayout.addRow('Frequency Env.:', self.layerChooseFreqEnvList)
         self.layerEditorLayout.addRow('Distortion Env.:', self.layerChooseDistEnvListLayout)
-        self.layerEditorLayout.addRow('Volume:', QSlider(Qt.Horizontal))
+        self.layerEditorLayout.addRow('Volume:', self.layerEditorVolumeLayout)
         self.layerEditorLayout.setVerticalSpacing(10)
 
         self.layerMenu = QVBoxLayout()
         self.layerMenu.addStretch()
-        self.layerMenu_BtnAdd = QPushButton('+')
-        self.layerMenu_BtnClone = QPushButton('C')
-        self.layerMenu_BtnEdit = QPushButton('...')
-        self.layerMenu_ChkBoxMute = QCheckBox('Mute')
-        self.layerMenu_BtnRenderSolo = QPushButton('Solo >>')
-        self.layerMenu_BtnRnd = QPushButton('???')
-        self.layerMenu.addWidget(self.layerMenu_BtnAdd)
-        self.layerMenu.addWidget(self.layerMenu_BtnClone)
-        self.layerMenu.addWidget(self.layerMenu_BtnEdit)
-        self.layerMenu.addWidget(self.layerMenu_BtnRnd)
-        self.layerMenu.addWidget(self.layerMenu_ChkBoxMute)
-        self.layerMenu.addWidget(self.layerMenu_BtnRenderSolo)
+        self.layerMenuBtnAdd = QPushButton('+')
+        self.layerMenuBtnClone = QPushButton('C')
+        self.layerMenuBtnEdit = QPushButton('...')
+        self.layerMenuMuteBox = QCheckBox('Mute')
+        self.layerMenuBtnRenderSolo = QPushButton('Solo >>')
+        self.layerMenuBtnRnd = QPushButton('???')
+        self.layerMenu.addWidget(self.layerMenuBtnAdd)
+        self.layerMenu.addWidget(self.layerMenuBtnClone)
+        self.layerMenu.addWidget(self.layerMenuBtnEdit)
+        self.layerMenu.addWidget(self.layerMenuBtnRnd)
+        self.layerMenu.addWidget(self.layerMenuMuteBox)
+        self.layerMenu.addWidget(self.layerMenuBtnRenderSolo)
 
         self.layerMainLayout.addLayout(self.layerListLayout, 54)
         self.layerMainLayout.addLayout(self.layerMenu, 1)
@@ -238,7 +251,7 @@ class MayDrumatizer(QWidget):
         self.distEnvGroup.setLayout(self.distEnvMainLayout)
 
         self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.presetGroup, .5)
+        self.mainLayout.addWidget(self.drumGroup, .5)
         self.mainLayout.addWidget(self.layerGroup, 1.5)
         self.mainLayout.addWidget(self.amplEnvGroup, 1)
         self.mainLayout.addWidget(self.freqEnvGroup, 1)
@@ -252,6 +265,7 @@ class MayDrumatizer(QWidget):
         self.layerChooseFreqEnvList.currentIndexChanged.connect(self.freqEnvSelectIndex)
         self.layerChooseDistEnvList.currentIndexChanged.connect(self.distEnvSelectIndex)
         self.layerChooseDistOff.stateChanged.connect(lambda state: self.layerChooseDistEnvList.setEnabled(not state))
+        self.layerEditorVolumeSlider.valueChanged.connect(lambda value: self.layerEditorVolumeLabel.setText('{}%'.format(value)))
         self.amplEnvMenu_BtnAdd.pressed.connect(self.amplEnvAdd)
         self.amplEnvMenu_BtnDel.pressed.connect(self.amplEnvDelete)
         self.amplEnvMenu_BtnRnd.pressed.connect(self.amplEnvRandomize)
@@ -269,18 +283,18 @@ class MayDrumatizer(QWidget):
 
 
     def initModelView(self):
-        self.presetModel = DrumModel()
-        self.presetList.setModel(self.presetModel)
+        self.drumModel = DrumModel()
+        self.drumList.setModel(self.drumModel)
         # change should trigger (autosave and) reload
 
         self.layerModel = LayerModel()
         self.layerList.setModel(self.layerModel)
-        #self.layerList.selectionModel().currentChanged.connect(self.layerSelect)
+        self.layerList.selectionModel().currentChanged.connect(self.layerOnSelection)
 
         self.amplEnvModel = EnvelopeModel()
         self.amplEnvList.setModel(self.amplEnvModel)
         self.amplEnvList.selectionModel().currentChanged.connect(self.amplEnvOnSelection)
-        self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdate)
+        self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdate) # TODO: check one day: do we need these?
 
         self.freqEnvModel = EnvelopeModel()
         self.freqEnvList.setModel(self.freqEnvModel)
@@ -301,16 +315,33 @@ class MayDrumatizer(QWidget):
 
 
     def initData(self):
-        self.layerEditorName.setText(self.guessAnAwesomeNewLayerName())
+        defaultDrum = Drum()
+        defaultLayer = Layer(amplEnv = defaultAmplEnvelope, freqEnv = defaultFreqEnvelope, distEnv = defaultDistEnvelope)
 
-        self.amplEnvInsertAndSelect(defaultAmplEnvelope)
-        self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
+        defaultDrum.addLayer(defaultLayer)
+        defaultDrum.addAmplEnv(defaultAmplEnvelope)
+        defaultDrum.addFreqEnv(defaultFreqEnvelope)
+        defaultDrum.addDistEnv(defaultDistEnvelope)
 
-        self.freqEnvInsertAndSelect(defaultFreqEnvelope)
-        self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
+        for env in defaultDrum.amplEnvs:
+            self.amplEnvInsertAndSelect(env)
 
-        self.distEnvInsertAndSelect(defaultDistEnvelope)
-        self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
+        for env in defaultDrum.freqEnvs:
+            self.freqEnvInsertAndSelect(env)
+
+        for env in defaultDrum.distEnvs:
+            self.distEnvInsertAndSelect(env)
+
+        for layer in defaultDrum.layers:
+            print(layer.name)
+            self.layerInsertAndSelect(layer)
+
+        # here one could load'em all!
+        self.drumInsertAndSelect(defaultDrum)
+
+        #self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
+        #    self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
+        #    self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
 
     def adjustDistMenuEdit(self, choice):
         if choice == 'Overdrive':
@@ -336,6 +367,32 @@ class MayDrumatizer(QWidget):
 ################################ MODEL FUNCTIONALITY ################################
 #####################################################################################
 
+################################## DRUM DRUMS #####################################
+    def drumInsertAndSelect(self, drum, position = None):
+        self.drumModel.insertNew(drum, position)
+        index = self.drumModel.indexOf(drum)
+        if index.isValid():
+            self.drumList.setCurrentIndex(index.row())
+
+##################################### LAYERS ########################################
+    def layerOnSelection(self, current, previous = None):
+        layer = self.layerModel.layers[current.row()]
+        self.layerEditorName.setText(layer.name)
+        self.layerEditorType.setCurrentText(layer.type)
+        self.layerChooseAmplEnvList.setCurrentText(layer.amplEnv.name)
+        self.layerChooseFreqEnvList.setCurrentText(layer.freqEnv.name)
+        self.layerChooseDistEnvList.setCurrentText(layer.distEnv.name)
+        self.layerChooseDistOff.setEnabled(layer.distOff)
+        self.layerEditorVolumeSlider.setValue(layer.volume)
+        self.layerMenuMuteBox.setEnabled(layer.mute)
+
+
+    def layerInsertAndSelect(self, layer, position = None):
+        self.layerModel.insertNew(layer, position)
+        index = self.layerModel.indexOf(layer)
+        if index.isValid():
+            self.layerList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
+
 ############################ AMPLITUDE ENVELOPES ####################################
 
     def anyAmplEnv(self, moreThan = 0):
@@ -351,9 +408,7 @@ class MayDrumatizer(QWidget):
         self.amplEnvWidget.loadEnvelope(self.currentAmplEnv())
 
     def amplEnvOnSelection(self, current, previous = None):
-        env = self.amplEnvModel.envelopes[current.row()]
-        self.amplEnvWidget.loadEnvelope(env)
-        print(current, previous)
+        self.amplEnvWidget.loadEnvelope(self.amplEnvModel.envelopes[current.row()])
 
     def amplEnvSelect(self, envelope):
         index = self.amplEnvModel.indexOf(envelope)
@@ -570,26 +625,6 @@ class MayDrumatizer(QWidget):
             self.distEnvWidget.update()
 
 
-################ THE SUPER IMPORTANT STUFF, PUTTING THE FUN IN FUNCTION! ##################
-    def guessAnAwesomeNewLayerName(self):
-        return choice([
-            'Are you ready for QoodMusic?',
-            'Is this already layer NR4?',
-            'Is this French Cheese!?',
-            'Once you offend, you cannot stop',
-            'Something with 150 kcal',
-            'Is this a psychological effect?',
-            'Sucht euch mal besser einen Musiker',
-            'Irgendwas is ja immir',
-            'Ah, der Bus mit den Leuten!',
-            'You love Team210, secretly',
-            'More Curry',
-            'From the guys that brought to you: \'Für Elite\'',
-            'I hope these Germans are here on friendly purpose',
-            'QM might have lost his t-shirt in your sauna..?',
-            'PFEFFERSPRAY',
-            'you have to be in the lake to be the lake'
-        ])
 # TODO: idea for layer effects: chorus / more precise stereo delay / .. ??
 
 
