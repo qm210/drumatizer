@@ -22,19 +22,23 @@ class Envelope:
             self.points = points
         else:
             oldNumber = len(self.points)
-            print(pointNumber, oldNumber, "ey")
             if pointNumber is not None and pointNumber > 1:
                 if pointNumber < oldNumber:
-                    self.points = self.points[0:pointNumber-1] + [self.points[-1]]
+                    if pointNumber == 2 and self.type == 'amplitude':
+                        self.points = self.points[0:2]
+                    else:
+                        self.points = self.points[0:pointNumber-1] + [self.points[-1]]
                 elif pointNumber > oldNumber:
-                    if oldNumber == 1:
+                    if oldNumber == 2 and self.type == 'amplitude':
+                        self.points.append(EnvelopePoint(time = pi/2, value = 0))
+                        oldNumber += 1
+                    elif oldNumber == 1:
                         self.points.append(EnvelopePoint(time = pi/2, value = self.points[0].value))
                         oldNumber += 1
                     # my super-awesome golden ratio algorithm C=
-                    for p in range(pointNumber - oldNumber):
+                    for _ in range(pointNumber - oldNumber):
                         goldenTime = .382 * self.points[-2].time + .618 * self.points[-1].time
                         goldenValue = .382 * self.points[-2].value + .618 * self.points[-1].value
-                        print(p, goldenTime, goldenValue)
                         self.points.insert(-1, EnvelopePoint(time = goldenTime, value = goldenValue))
 
         if parameters is not None:
@@ -93,7 +97,7 @@ class EnvelopeModel(QAbstractListModel):
         if role == Qt.DisplayRole:
             return self.envelopes[index.row()].name
 
-    def rowCount(self, index):
+    def rowCount(self, index = None):
         return len(self.envelopes)
 
     def indexOf(self, envelope):
@@ -107,7 +111,7 @@ class EnvelopeModel(QAbstractListModel):
 
     def insertNew(self, envelope, position = None):
         newEnvelope = deepcopy(envelope)
-        if position:
+        if position is not None:
             self.envelopes.insert(position, newEnvelope)
             self.newestIndex = position
         else:
@@ -120,6 +124,12 @@ class EnvelopeModel(QAbstractListModel):
         except:
             return None
 
+    def lastEnvelope(self):
+        if self.envelopes:
+            return self.envelopes[-1]
+        else:
+            return None
+
     def adjust(self, numericalIndex, name = None, points = None, parameters = None, pointNumber = None):
         if self.envelopes:
             self.envelopes[numericalIndex].adjust(name, points, pointNumber, parameters)
@@ -128,7 +138,7 @@ class EnvelopeModel(QAbstractListModel):
         self.adjust(self.newestIndex, **args)
 
 
-defaultAmpEnvelope = Envelope(
+defaultAmplEnvelope = Envelope(
     name = '(default)',
     type = 'amplitude',
     points = [

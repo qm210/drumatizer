@@ -44,7 +44,7 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QListView {
     selection-background-color: BUTTON_BGCOLOR;
 }
 
-QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {
     background-color: #302040;
 }
 

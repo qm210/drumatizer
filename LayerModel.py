@@ -14,6 +14,7 @@ class Layer:
         self.distEnvelope = None
         self.distType = None
         self.distParam = None
+        self.distOff = False
         self.volume = 1
         self.mute = False
         # TODO: change stereo-delay per sample -- extend the synth in order to assemble L and R separately?

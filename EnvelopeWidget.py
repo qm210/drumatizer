@@ -78,10 +78,11 @@ class EnvelopeWidget(QtWidgets.QWidget):
             for ip, p in enumerate(self.points):
                 coordX, coordY = self.getCoordinatesOfDimensions(p.time, p.value)
                 qp.drawEllipse(coordX - self.POINTSIZE * h/2, coordY - self.POINTSIZE * h/2, self.POINTSIZE * h, self.POINTSIZE * h)
-                axisX = x + self.LABEL_LMARGIN * w
-                self.drawText(qp, axisX, coordY, Qt.AlignRight | Qt.AlignVCenter, str(p.value))
-                axisY = y + (1 - self.LABEL_BMARGIN) * h
-                self.drawText(qp, coordX, axisY, Qt.AlignHCenter, str(p.time))
+                if not (p.fixedTime and p.fixedValue):
+                    axisX = x + self.LABEL_LMARGIN * w
+                    self.drawText(qp, axisX, coordY, Qt.AlignRight | Qt.AlignVCenter, str(p.value))
+                    axisY = y + (1 - self.LABEL_BMARGIN) * h
+                    self.drawText(qp, coordX, axisY, Qt.AlignHCenter, str(p.time))
 
                 if ip == 0:
                     path.moveTo(coordX, coordY)

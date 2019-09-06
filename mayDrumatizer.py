@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, QItemSelectionModel
+from random import choice
 
 from DrumModel import *
 from LayerModel import *
@@ -18,6 +19,7 @@ class MayDrumatizer(QWidget):
         self.maxValue = {'amplitude': 1, 'frequency': 12000, 'distortion': 2}
 
         self.initLayouts()
+        self.initSignals()
         self.initModelView()
         self.initData()
 
@@ -61,16 +63,25 @@ class MayDrumatizer(QWidget):
         self.layerEditorName = QLineEdit()
         self.layerEditorType = QComboBox()
         self.layerEditorType.addItems(layerTypes)
+        self.layerEditorType.setMinimumWidth(200)
 
-        self.layerChooseAmpEnvList = QComboBox()
+        self.layerChooseAmplEnvList = QComboBox()
+        self.layerChooseAmplEnvList.setMinimumWidth(200)
         self.layerChooseFreqEnvList = QComboBox()
+        self.layerChooseFreqEnvList.setMinimumWidth(200)
         self.layerChooseDistEnvList = QComboBox()
+        self.layerChooseDistEnvList.setMinimumWidth(200)
+        self.layerChooseDistOff = QCheckBox('no pls')
+        self.layerChooseDistEnvListLayout = QHBoxLayout()
+        self.layerChooseDistEnvListLayout.addWidget(self.layerChooseDistEnvList)
+        self.layerChooseDistEnvListLayout.addStretch()
+        self.layerChooseDistEnvListLayout.addWidget(self.layerChooseDistOff)
 
         self.layerEditorLayout.addRow('Layer Name:', self.layerEditorName)
         self.layerEditorLayout.addRow('Layer Type:', self.layerEditorType)
-        self.layerEditorLayout.addRow('Amplitude Env.:', self.layerChooseAmpEnvList)
+        self.layerEditorLayout.addRow('Amplitude Env.:', self.layerChooseAmplEnvList)
         self.layerEditorLayout.addRow('Frequency Env.:', self.layerChooseFreqEnvList)
-        self.layerEditorLayout.addRow('Distortion Env.:', self.layerChooseDistEnvList)
+        self.layerEditorLayout.addRow('Distortion Env.:', self.layerChooseDistEnvListLayout)
         self.layerEditorLayout.addRow('Volume:', QSlider(Qt.Horizontal))
         self.layerEditorLayout.setVerticalSpacing(10)
 
@@ -89,52 +100,47 @@ class MayDrumatizer(QWidget):
         self.layerMenu.addWidget(self.layerMenu_ChkBoxMute)
         self.layerMenu.addWidget(self.layerMenu_BtnRenderSolo)
 
-        self.layerMainLayout.addLayout(self.layerListLayout, 50)
+        self.layerMainLayout.addLayout(self.layerListLayout, 54)
         self.layerMainLayout.addLayout(self.layerMenu, 1)
-        self.layerMainLayout.addWidget(self.layerEditor, 50)
+        self.layerMainLayout.addWidget(self.layerEditor, 45)
 
         self.layerGroup = QGroupBox()
         self.layerGroup.setLayout(self.layerMainLayout)
 
         # amp envelope widget - todo: do something smart to combine layers
-        self.ampEnvList = QListView()
+        self.amplEnvList = QListView()
+        self.amplEnvMenu = QVBoxLayout()
+        self.amplEnvWidget = EnvelopeWidget(self)
+        self.amplEnvWidget.setDimensions(maxTime = self.maxTime, minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
 
-        self.ampEnvMenu = QVBoxLayout()
-        self.ampEnvWidget = EnvelopeWidget(self)
-        self.ampEnvWidget.setDimensions(maxTime = self.maxTime, minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
+        self.amplEnvMenu_BtnAdd = QPushButton('+')
+        self.amplEnvMenu_BtnDel = QPushButton('–')
+        self.amplEnvMenu_BtnRnd = QPushButton('???')
+        self.amplEnvMenu_BtnEdit = QPushButton('...')
 
-        self.ampEnvMenu_BtnAdd = QPushButton('+')
-        self.ampEnvMenu_BtnAdd.pressed.connect(self.ampEnvAdd)
-        self.ampEnvMenu_BtnDel = QPushButton('–')
-        self.ampEnvMenu_BtnDel.pressed.connect(self.ampEnvDelete)
-        self.ampEnvMenu_BtnRnd = QPushButton('???')
-        self.ampEnvMenu_BtnRnd.pressed.connect(self.ampEnvRandomize)
-        self.ampEnvMenu_BtnEdit = QPushButton('...')
-        self.ampEnvMenu_BtnEdit.pressed.connect(self.ampEnvEditSettings)
+        self.amplEnvMenu.addStretch()
+        self.amplEnvMenu.addWidget(self.amplEnvMenu_BtnAdd)
+        self.amplEnvMenu.addWidget(self.amplEnvMenu_BtnDel)
+        self.amplEnvMenu.addWidget(self.amplEnvMenu_BtnEdit)
+        self.amplEnvMenu.addWidget(self.amplEnvMenu_BtnRnd)
 
-        self.ampEnvMenu.addStretch()
-        self.ampEnvMenu.addWidget(self.ampEnvMenu_BtnAdd)
-        self.ampEnvMenu.addWidget(self.ampEnvMenu_BtnDel)
-        self.ampEnvMenu.addWidget(self.ampEnvMenu_BtnEdit)
-        self.ampEnvMenu.addWidget(self.ampEnvMenu_BtnRnd)
+        self.amplEnvLayout = QHBoxLayout()
+        self.amplEnvLayout.addWidget(self.amplEnvList, 20)
+        self.amplEnvLayout.addLayout(self.amplEnvMenu, 1)
+        self.amplEnvLayout.addWidget(self.amplEnvWidget, 80)
 
-        self.ampEnvLayout = QHBoxLayout()
-        self.ampEnvLayout.addWidget(self.ampEnvList, 20)
-        self.ampEnvLayout.addLayout(self.ampEnvMenu, 1)
-        self.ampEnvLayout.addWidget(self.ampEnvWidget, 80)
-
-        self.ampEnvMainLayout = QVBoxLayout()
+        self.amplEnvMainLayout = QVBoxLayout()
         self.ampMenuLayout = QHBoxLayout()
         self.ampMenuLayout.addWidget(QLabel('Amplitude Envelopes'))
         self.ampMenuLayout.addStretch()
-        self.ampEnvMenu_TryExpFitChkBox = QCheckBox('Try ExpDecay Fit')
-        self.ampMenuLayout.addWidget(self.ampEnvMenu_TryExpFitChkBox)
+        self.amplEnvMenu_TryExpFitChkBox = QCheckBox('Try ExpDecay Fit')
+        self.ampMenuLayout.addWidget(self.amplEnvMenu_TryExpFitChkBox)
 
-        self.ampEnvMainLayout.addLayout(self.ampMenuLayout, 10)
-        self.ampEnvMainLayout.addLayout(self.ampEnvLayout, 90)
+        self.amplEnvMainLayout.addLayout(self.ampMenuLayout, 10)
+        self.amplEnvMainLayout.addLayout(self.amplEnvLayout, 90)
 
-        self.ampEnvGroup = QGroupBox()
-        self.ampEnvGroup.setLayout(self.ampEnvMainLayout)
+        self.amplEnvGroup = QGroupBox()
+        self.amplEnvGroup.setLayout(self.amplEnvMainLayout)
 
         # freq envelope widget
         self.freqEnvList = QListView()
@@ -146,6 +152,7 @@ class MayDrumatizer(QWidget):
         self.freqEnvMenu_BtnDel = QPushButton('–')
         self.freqEnvMenu_BtnRnd = QPushButton('???')
         self.freqEnvMenu_BtnEdit = QPushButton('...')
+
         self.freqEnvMenu.addStretch()
         self.freqEnvMenu.addWidget(self.freqEnvMenu_BtnAdd)
         self.freqEnvMenu.addWidget(self.freqEnvMenu_BtnDel)
@@ -175,6 +182,7 @@ class MayDrumatizer(QWidget):
         self.distEnvMenu_BtnDel = QPushButton('–')
         self.distEnvMenu_BtnRnd = QPushButton('???')
         self.distEnvMenu_BtnEdit = QPushButton('...')
+
         self.distEnvMenu.addStretch()
         self.distEnvMenu.addWidget(self.distEnvMenu_BtnAdd)
         self.distEnvMenu.addWidget(self.distEnvMenu_BtnDel)
@@ -192,7 +200,6 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit_OverdriveMaximum.setValue(self.distEnvWidget.maxValue)
         self.distMenuEdit_OverdriveMaximum.setSingleStep(0.1)
         self.distMenuEdit_OverdriveMaximum.setPrefix('max. ')
-        self.distMenuEdit_OverdriveMaximum.valueChanged.connect(self.adjustDistEnvWidgetMaximum)
         self.distMenuEdit_WaveshapeParts = QSpinBox()
         self.distMenuEdit_WaveshapeParts.setMinimum(1)
         self.distMenuEdit_WaveshapeParts.setValue(3)
@@ -209,7 +216,6 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit_NA.setText('N/A')
         self.distMenuEdit_NA.setEnabled(False)
         self.distMenuType.addItems(distTypes)
-        self.distMenuType.currentTextChanged.connect(self.adjustDistMenuEdit)
 
         self.distMenuEdit = QStackedLayout()
         self.distMenuEdit.addWidget(self.distMenuEdit_OverdriveMaximum)
@@ -234,11 +240,32 @@ class MayDrumatizer(QWidget):
         self.mainLayout = QVBoxLayout()
         self.mainLayout.addWidget(self.presetGroup, .5)
         self.mainLayout.addWidget(self.layerGroup, 1.5)
-        self.mainLayout.addWidget(self.ampEnvGroup, 1)
+        self.mainLayout.addWidget(self.amplEnvGroup, 1)
         self.mainLayout.addWidget(self.freqEnvGroup, 1)
         self.mainLayout.addWidget(self.distEnvGroup, 1)
 
         self.setLayout(self.mainLayout)
+
+
+    def initSignals(self):
+        self.layerChooseAmplEnvList.currentIndexChanged.connect(self.amplEnvSelectIndex)
+        self.layerChooseFreqEnvList.currentIndexChanged.connect(self.freqEnvSelectIndex)
+        self.layerChooseDistEnvList.currentIndexChanged.connect(self.distEnvSelectIndex)
+        self.layerChooseDistOff.stateChanged.connect(lambda state: self.layerChooseDistEnvList.setEnabled(not state))
+        self.amplEnvMenu_BtnAdd.pressed.connect(self.amplEnvAdd)
+        self.amplEnvMenu_BtnDel.pressed.connect(self.amplEnvDelete)
+        self.amplEnvMenu_BtnRnd.pressed.connect(self.amplEnvRandomize)
+        self.amplEnvMenu_BtnEdit.pressed.connect(self.amplEnvEditSettings)
+        self.freqEnvMenu_BtnAdd.pressed.connect(self.freqEnvAdd)
+        self.freqEnvMenu_BtnDel.pressed.connect(self.freqEnvDelete)
+        self.freqEnvMenu_BtnRnd.pressed.connect(self.freqEnvRandomize)
+        self.freqEnvMenu_BtnEdit.pressed.connect(self.freqEnvEditSettings)
+        self.distEnvMenu_BtnAdd.pressed.connect(self.distEnvAdd)
+        self.distEnvMenu_BtnDel.pressed.connect(self.distEnvDelete)
+        self.distEnvMenu_BtnRnd.pressed.connect(self.distEnvRandomize)
+        self.distEnvMenu_BtnEdit.pressed.connect(self.distEnvEditSettings)
+        self.distMenuEdit_OverdriveMaximum.valueChanged.connect(self.adjustDistEnvWidgetMaximum)
+        self.distMenuType.currentTextChanged.connect(self.adjustDistMenuEdit)
 
 
     def initModelView(self):
@@ -250,22 +277,23 @@ class MayDrumatizer(QWidget):
         self.layerList.setModel(self.layerModel)
         #self.layerList.selectionModel().currentChanged.connect(self.layerSelect)
 
-        self.ampEnvModel = EnvelopeModel()
-        self.ampEnvList.setModel(self.ampEnvModel)
-        self.ampEnvList.selectionModel().currentChanged.connect(self.ampEnvSelectedManually)
-        self.ampEnvModel.layoutChanged.connect(self.ampEnvUpdate)
+        self.amplEnvModel = EnvelopeModel()
+        self.amplEnvList.setModel(self.amplEnvModel)
+        self.amplEnvList.selectionModel().currentChanged.connect(self.amplEnvOnSelection)
+        self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdate)
 
         self.freqEnvModel = EnvelopeModel()
         self.freqEnvList.setModel(self.freqEnvModel)
-        self.freqEnvList.selectionModel().currentChanged.connect(self.freqEnvSelect)
+        self.freqEnvList.selectionModel().currentChanged.connect(self.freqEnvOnSelection)
         self.freqEnvModel.layoutChanged.connect(self.freqEnvUpdate)
 
         self.distEnvModel = EnvelopeModel()
         self.distEnvList.setModel(self.distEnvModel)
-        self.distEnvList.selectionModel().currentChanged.connect(self.distEnvSelect)
+        self.distEnvList.selectionModel().currentChanged.connect(self.distEnvOnSelection)
         self.distEnvModel.layoutChanged.connect(self.distEnvUpdate)
 
-        self.layerChooseAmpEnvList.setModel(self.ampEnvModel)
+        self.layerChooseAmplEnvList.setModel(self.amplEnvModel)
+        #SHIT self.layerChooseAmplEnvList.currentIndexChanged.connect()
         self.layerChooseFreqEnvList.setModel(self.freqEnvModel)
         self.layerChooseDistEnvList.setModel(self.distEnvModel)
 
@@ -273,14 +301,16 @@ class MayDrumatizer(QWidget):
 
 
     def initData(self):
-        self.ampEnvInsertAndSelect(defaultAmpEnvelope)
+        self.layerEditorName.setText(self.guessAnAwesomeNewLayerName())
 
-#        self.freqEnvModel.insertNew(defaultFreqEnvelope)
-#        self.freqEnvList.selectionModel().setCurrentIndex(self.freqEnvModel.index(0), QItemSelectionModel.SelectCurrent)
+        self.amplEnvInsertAndSelect(defaultAmplEnvelope)
+        self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
 
-#        self.distEnvModel.insertNew(defaultDistEnvelope)
-#        self.distEnvList.selectionModel().setCurrentIndex(self.distEnvModel.index(0), QItemSelectionModel.SelectCurrent)
+        self.freqEnvInsertAndSelect(defaultFreqEnvelope)
+        self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
 
+        self.distEnvInsertAndSelect(defaultDistEnvelope)
+        self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
 
     def adjustDistMenuEdit(self, choice):
         if choice == 'Overdrive':
@@ -308,39 +338,43 @@ class MayDrumatizer(QWidget):
 
 ############################ AMPLITUDE ENVELOPES ####################################
 
-    def anyAmpEnv(self):
-        return len(self.ampEnvModel.envelopes) > 0
+    def anyAmplEnv(self, moreThan = 0):
+        return len(self.amplEnvModel.envelopes) > moreThan
 
-    def currentAmpEnv(self):
+    def currentAmplEnv(self):
         try:
-            return self.ampEnvModel.envelopes[self.ampEnvList.currentIndex().row()]
+            return self.amplEnvModel.envelopes[self.amplEnvList.currentIndex().row()]
         except IndexError:
             return None
 
-    def ampEnvUpdate(self):
-        self.ampEnvWidget.loadEnvelope(self.currentAmpEnv())
+    def amplEnvUpdate(self):
+        self.amplEnvWidget.loadEnvelope(self.currentAmplEnv())
 
-    def ampEnvSelectedManually(self, current, previous = None):
-        env = self.ampEnvModel.envelopes[current.row()]
-        self.ampEnvWidget.loadEnvelope(env)
+    def amplEnvOnSelection(self, current, previous = None):
+        env = self.amplEnvModel.envelopes[current.row()]
+        self.amplEnvWidget.loadEnvelope(env)
+        print(current, previous)
 
-    def ampEnvSelect(self, envelope):
-        index = self.ampEnvModel.indexOf(envelope)
+    def amplEnvSelect(self, envelope):
+        index = self.amplEnvModel.indexOf(envelope)
         if index is not None:
-            self.ampEnvList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
+            self.amplEnvList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
 
-    def ampEnvInsertAndSelect(self, envelope):
-        self.ampEnvModel.insertNew(envelope)
-        self.ampEnvSelect(self.ampEnvModel.newestEnvelope())
+    def amplEnvSelectIndex(self, index):
+        self.amplEnvList.selectionModel().setCurrentIndex(self.amplEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
 
-    def ampEnvAdd(self):
-        self.handleSettingsDialog(SettingsDialog(self, defaultAmpEnvelope, mode = SettingsDialog.NEW))
+    def amplEnvInsertAndSelect(self, envelope, position = None):
+        self.amplEnvModel.insertNew(envelope, position)
+        self.amplEnvSelect(self.amplEnvModel.newestEnvelope())
 
-    def ampEnvEditSettings(self):
-        if self.anyAmpEnv():
-            self.handleSettingsDialog(SettingsDialog(self, self.currentAmpEnv()))
+    def amplEnvAdd(self):
+        self.handleAmplEnvSettingsDialog(SettingsDialog(self, defaultAmplEnvelope, mode = SettingsDialog.NEW))
 
-    def handleSettingsDialog(self, dialog):
+    def amplEnvEditSettings(self):
+        if self.anyAmplEnv():
+            self.handleAmplEnvSettingsDialog(SettingsDialog(self, self.currentAmplEnv()))
+
+    def handleAmplEnvSettingsDialog(self, dialog):
         if dialog.exec_():
             name = dialog.getName()
             pointNumber = dialog.getPointNumber()
@@ -348,123 +382,214 @@ class MayDrumatizer(QWidget):
             assign = dialog.getWhetherToAssign()
 
             if dialog.mode == SettingsDialog.NEW:
-                self.ampEnvInsertAndSelect(defaultAmpEnvelope)
+                self.amplEnvInsertAndSelect(defaultAmplEnvelope, self.amplEnvList.currentIndex().row() + 1)
             elif dialog.mode == SettingsDialog.CLONE:
-                self.ampEnvInsertAndSelect(self.currentAmpEnv())
+                self.amplEnvInsertAndSelect(self.currentAmplEnv(), self.amplEnvList.currentIndex().row() + 1)
 
             if pointNumber > 1:
-                self.currentAmpEnv().adjust(name = name, pointNumber = pointNumber)
+                self.currentAmplEnv().adjust(name = name, pointNumber = pointNumber)
             else:
-                self.currentAmpEnv().adjust(name = name, points = EnvelopePoint(time = 0, value = value))
+                self.currentAmplEnv().adjust(name = name, points = EnvelopePoint(time = 0, value = value))
 
             if assign:
-                self.layerChooseAmpEnvList.setCurrentIndex(self.ampEnvList.currentIndex().row())
+                self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
 
-            self.ampEnvModel.dataChanged.emit(self.ampEnvList.currentIndex(), self.ampEnvList.currentIndex())
+            self.amplEnvModel.dataChanged.emit(self.amplEnvList.currentIndex(), self.amplEnvList.currentIndex())
 
 
-    def ampEnvDelete(self):
-        if self.anyAmpEnv():
-            self.ampEnvModel.envelopes.remove(self.currentAmpEnv())
-            self.ampEnvModel.layoutChanged.emit()
+    def amplEnvDelete(self):
+        if self.anyAmplEnv(moreThan = 1):
+            index = self.amplEnvModel.indexOf(self.currentAmplEnv()).row()
 
-    def ampEnvRandomize(self):
-        if self.anyAmpEnv():
-            env = self.currentAmpEnv()
+            self.amplEnvModel.envelopes.remove(self.currentAmplEnv())
+            self.amplEnvModel.layoutChanged.emit()
+
+            if index == self.amplEnvModel.rowCount():
+                self.amplEnvList.setCurrentIndex(self.amplEnvModel.indexOf(self.amplEnvModel.lastEnvelope()))
+
+    def amplEnvRandomize(self):
+        if self.anyAmplEnv():
+            env = self.currentAmplEnv()
             env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
-            self.ampEnvWidget.update()
+            self.amplEnvWidget.update()
 
 
 ############################ FREQUENCY ENVELOPES ####################################
 
+    def anyFreqEnv(self, moreThan = 0):
+        return len(self.freqEnvModel.envelopes) > moreThan
+
     def currentFreqEnv(self):
         try:
-            return self.freqEnvModel.envelopes[self.freqEnvList.selectedIndexes()[-1].row()]
+            return self.freqEnvModel.envelopes[self.freqEnvList.currentIndex().row()]
         except IndexError:
             return None
 
     def freqEnvUpdate(self):
         self.freqEnvWidget.loadEnvelope(self.currentFreqEnv())
+        print(self.currentFreqEnv())
 
-    def freqEnvSelect(self, current, previous = None):
-        self.freqEnvWidget.loadEnvelope(self.freqEnvModel.envelopes[current.row()])
+    def freqEnvOnSelection(self, current, previous = None):
+        env = self.freqEnvModel.envelopes[current.row()]
+        self.freqEnvWidget.loadEnvelope(env)
+
+    def freqEnvSelect(self, envelope):
+        index = self.freqEnvModel.indexOf(envelope)
+        if index is not None:
+            self.freqEnvList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
+
+    def freqEnvSelectIndex(self, index):
+        self.freqEnvList.selectionModel().setCurrentIndex(self.freqEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
+
+    def freqEnvInsertAndSelect(self, envelope, position = None):
+        self.freqEnvModel.insertNew(envelope, position)
+        self.freqEnvSelect(self.freqEnvModel.newestEnvelope())
 
     def freqEnvAdd(self):
-        # actually, open settings editor first
-        self.freqEnvModel.insertNew(defaultFreqEnvelope)
-        self.freqEnvModel.layoutChanged.emit()
+        self.handleFreqEnvSettingsDialog(SettingsDialog(self, defaultFreqEnvelope, mode = SettingsDialog.NEW))
+
+    def freqEnvEditSettings(self):
+        if self.anyFreqEnv():
+            self.handleFreqEnvSettingsDialog(SettingsDialog(self, self.currentFreqEnv()))
+
+    def handleFreqEnvSettingsDialog(self, dialog):
+        if dialog.exec_():
+            name = dialog.getName()
+            pointNumber = dialog.getPointNumber()
+            value = dialog.getSinglePointValue()
+            assign = dialog.getWhetherToAssign()
+
+            if dialog.mode == SettingsDialog.NEW:
+                self.freqEnvInsertAndSelect(defaultFreqEnvelope, self.freqEnvList.currentIndex().row() + 1)
+            elif dialog.mode == SettingsDialog.CLONE:
+                self.freqEnvInsertAndSelect(self.currentFreqEnv(), self.freqEnvList.currentIndex().row() + 1)
+
+            if pointNumber > 1:
+                self.currentFreqEnv().adjust(name = name, pointNumber = pointNumber)
+            else:
+                self.currentFreqEnv().adjust(name = name, points = EnvelopePoint(time = 0, value = value))
+
+            if assign:
+                self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
+
+            self.freqEnvModel.dataChanged.emit(self.freqEnvList.currentIndex(), self.freqEnvList.currentIndex())
+
 
     def freqEnvDelete(self):
-        try:
-            index = self.freqEnvList.selectedIndexes()[-1]
-            del self.freqEnvModel.envelopes[index.row()]
+        if self.anyFreqEnv(moreThan = 1):
+            index = self.freqEnvModel.indexOf(self.currentFreqEnv()).row()
+
+            self.freqEnvModel.envelopes.remove(self.currentFreqEnv())
             self.freqEnvModel.layoutChanged.emit()
-            self.freqEnvList.clearSelection()
-        except:
-            pass
+
+            if index == self.freqEnvModel.rowCount():
+                self.freqEnvList.setCurrentIndex(self.freqEnvModel.indexOf(self.freqEnvModel.lastEnvelope()))
 
     def freqEnvRandomize(self):
-        try:
-            index = self.freqEnvList.selectedIndexes()[-1]
-            self.freqEnvModel.envelopes[index.row()].randomize()
-        except:
-            pass
-
-    def freqEnvOpenSettings(self):
-        name = 'Wolfgang Frequenzgang'
-        try:
-            index = self.freqEnvList.selectedIndexes()[-1]
-            self.freqEnvModel.envelopes[index.row()].adjust(name = name)
-            self.freqEnvModel.dataChanged.emit(index, index)
-        except:
-            raise
+        if self.anyFreqEnv():
+            env = self.currentFreqEnv()
+            env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
+            self.freqEnvWidget.update()
 
 
 ############################ DISTORTION ENVELOPES ####################################
 
+    def anyDistEnv(self, moreThan = 0):
+        return len(self.distEnvModel.envelopes) > moreThan
+
     def currentDistEnv(self):
         try:
-            return self.distEnvModel.envelopes[self.distEnvList.selectedIndexes()[-1].row()]
+            return self.distEnvModel.envelopes[self.distEnvList.currentIndex().row()]
         except IndexError:
             return None
 
     def distEnvUpdate(self):
         self.distEnvWidget.loadEnvelope(self.currentDistEnv())
 
-    def distEnvSelect(self, current, previous = None):
-        self.distEnvWidget.loadEnvelope(self.distEnvModel.envelopes[current.row()])
+    def distEnvOnSelection(self, current, previous = None):
+        env = self.distEnvModel.envelopes[current.row()]
+        self.distEnvWidget.loadEnvelope(env)
+
+    def distEnvSelect(self, envelope):
+        index = self.distEnvModel.indexOf(envelope)
+        if index is not None:
+            self.distEnvList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
+
+    def distEnvSelectIndex(self, index):
+        self.distEnvList.selectionModel().setCurrentIndex(self.distEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
+
+    def distEnvInsertAndSelect(self, envelope, position = None):
+        self.distEnvModel.insertNew(envelope, position)
+        self.distEnvSelect(self.distEnvModel.newestEnvelope())
 
     def distEnvAdd(self):
-        # actually, open settings editor first
-        self.distEnvModel.insertNew(defaultDistEnvelope)
-        self.distEnvModel.layoutChanged.emit()
+        self.handleDistEnvSettingsDialog(SettingsDialog(self, defaultDistEnvelope, mode = SettingsDialog.NEW))
+
+    def distEnvEditSettings(self):
+        if self.anyDistEnv():
+            self.handleDistEnvSettingsDialog(SettingsDialog(self, self.currentDistEnv()))
+
+    def handleDistEnvSettingsDialog(self, dialog):
+        if dialog.exec_():
+            name = dialog.getName()
+            pointNumber = dialog.getPointNumber()
+            value = dialog.getSinglePointValue()
+            assign = dialog.getWhetherToAssign()
+
+            if dialog.mode == SettingsDialog.NEW:
+                self.distEnvInsertAndSelect(defaultDistEnvelope, self.distEnvList.currentIndex().row() + 1)
+            elif dialog.mode == SettingsDialog.CLONE:
+                self.distEnvInsertAndSelect(self.currentDistEnv(), self.distEnvList.currentIndex().row() + 1)
+
+            if pointNumber > 1:
+                self.currentDistEnv().adjust(name = name, pointNumber = pointNumber)
+            else:
+                self.currentDistEnv().adjust(name = name, points = EnvelopePoint(time = 0, value = value))
+
+            if assign:
+                self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
+
+            self.distEnvModel.dataChanged.emit(self.distEnvList.currentIndex(), self.distEnvList.currentIndex())
+
 
     def distEnvDelete(self):
-        try:
-            index = self.distEnvList.selectedIndexes()[-1]
-            del self.distEnvModel.envelopes[index.row()]
+        if self.anyDistEnv(moreThan = 1):
+            index = self.distEnvModel.indexOf(self.currentDistEnv()).row()
+
+            self.distEnvModel.envelopes.remove(self.currentDistEnv())
             self.distEnvModel.layoutChanged.emit()
-            self.distEnvList.clearSelection()
-        except:
-            pass
+
+            if index == self.distEnvModel.rowCount():
+                self.distEnvList.setCurrentIndex(self.distEnvModel.indexOf(self.distEnvModel.lastEnvelope()))
+
 
     def distEnvRandomize(self):
-        try:
-            index = self.distEnvList.selectedIndexes()[-1]
-            self.distEnvModel.envelopes[index.row()].randomize()
-        except:
-            pass
-
-    def distEnvOpenSettings(self):
-        name = 'hannes am saufen'
-        try:
-            index = self.distEnvList.selectedIndexes()[-1]
-            self.distEnvModel.envelopes[index.row()].adjust(name = name)
-            self.distEnvModel.dataChanged.emit(index, index)
-        except:
-            raise
+        if self.anyDistEnv():
+            env = self.currentDistEnv()
+            env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
+            self.distEnvWidget.update()
 
 
+################ THE SUPER IMPORTANT STUFF, PUTTING THE FUN IN FUNCTION! ##################
+    def guessAnAwesomeNewLayerName(self):
+        return choice([
+            'Are you ready for QoodMusic?',
+            'Is this already layer NR4?',
+            'Is this French Cheese!?',
+            'Once you offend, you cannot stop',
+            'Something with 150 kcal',
+            'Is this a psychological effect?',
+            'Sucht euch mal besser einen Musiker',
+            'Irgendwas is ja immir',
+            'Ah, der Bus mit den Leuten!',
+            'You love Team210, secretly',
+            'More Curry',
+            'From the guys that brought to you: \'Für Elite\'',
+            'I hope these Germans are here on friendly purpose',
+            'QM might have lost his t-shirt in your sauna..?',
+            'PFEFFERSPRAY',
+            'you have to be in the lake to be the lake'
+        ])
 # TODO: idea for layer effects: chorus / more precise stereo delay / .. ??
 
 
