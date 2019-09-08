@@ -110,6 +110,7 @@ class MayDrumatizer(QWidget):
         self.layerMenu = QVBoxLayout()
         self.layerMenu.addStretch()
         self.layerMenuBtnAdd = QPushButton('+')
+        self.layerMenuBtnClone = QPushButton('C')
         self.layerMenuBtnDel = QPushButton('–')
         self.layerMenuBtnSwap = QPushButton('⇵')
         self.layerMenuMuteBox = QCheckBox('Mute')
@@ -418,7 +419,9 @@ class MayDrumatizer(QWidget):
         except IndexError:
             return None
 
-    def layerLoad(self, current, previous = None):
+    def layerLoad(self, current = None, previous = None):
+        if current is None:
+            current = self.layerList.currentIndex()
         layer = self.layerModel.layers[current.row()]
         self.layerEditorName.setText(layer.name)
         self.layerEditorType.setCurrentText(layer.type)
@@ -436,7 +439,8 @@ class MayDrumatizer(QWidget):
 
     def layerSelect(self, numericalIndex):
         if self.layerModel.rowCount() > 0:
-            self.layerList.selectionModel().setCurrentIndex(self.layerModel.createIndex(numericalIndex,0), QItemSelectionModel.SelectCurrent)
+            index = self.layerModel.createIndex(numericalIndex,0)
+            self.layerList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
 
     def layerInsertAndSelect(self, layer, position = None):
         self.layerModel.insertNew(layer, position)
@@ -452,10 +456,12 @@ class MayDrumatizer(QWidget):
             newLayer = deepcopy(self.currentLayer())
         else:
             newLayer = Layer(amplEnv = defaultAmplEnvelope, freqEnv = defaultFreqEnvelope, distEnv = defaultDistEnvelope)
+        newLayer.adjust(name = newLayer.talkSomeTeam210Shit(skip = self.layerModel.nameList()), volume = 100, detune = 0, stereodelay = 0, distOff = True)
         self.layerInsertAndSelect(newLayer, self.layerList.currentIndex().row() + 1)
-        self.layerModel.adjustNewest(name = newLayer.talkSomeTeam210Shit(skip = self.layerModel.nameList()))
+        self.layerLoad()
         self.layerModel.layoutChanged.emit()
         self.layerEditorName.selectAll()
+        self.layerEditorName.setFocus()
 
     def layerDelete(self):
         if self.anyLayers(moreThan = 1):

@@ -70,7 +70,7 @@ class Layer:
             'Something with 150 kcal',
             'Just. A. Psychological. Effect!',
             'Sucht euch mal besser einen Musiker',
-            'Irgendwas is ja immir',
+            'Aber irgendwas\'jaimmer',
             'Ah, der Bus mit den Leuten!',
             'Vote for Team210, these are cool guys',
             'More Currrrrrrrrrrrrry',
