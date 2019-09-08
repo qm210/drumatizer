@@ -6,7 +6,7 @@ class Drum:
     def __init__(self, name = None, type = None):
         self.name = name or 'are you DRUMATIZED yet?'
         # idea: preset list will be grouped by type
-        self.type = type or 'Snare'
+        self.type = type or 'Asskick'
         self.iLike = 0
         # each drum holds an arbitrary amount of layers and envelopes of each kind
         self.layers = []
@@ -16,7 +16,7 @@ class Drum:
         # '...' menu: enter name, type, option to purge unused envelopes, also the 'drum awesomeness', for the ranking ;)
 
     def __repr__(self):
-        return '{} -- {}'.format(self.type.upper(), self.name)
+        return self.name # '{} -- {}'.format(self.type.upper(), self.name)
 
     def addLayer(self, layer):
         self.layers.append(layer)
@@ -38,9 +38,9 @@ class DrumModel(QAbstractListModel):
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.drums[index.row()].name
+            return self.drums[index.row()].__repr__()
 
-    def rowCount(self, index):
+    def rowCount(self, index = None):
         return len(self.drums)
 
     def indexOf(self, drum):
@@ -51,6 +51,17 @@ class DrumModel(QAbstractListModel):
                 return modelIndex
         except ValueError:
             return None
+
+    def emitAllChanged(self):
+        self.dataChanged.emit(self.createIndex(0,0), self.createIndex(self.rowCount(),0))
+
+    def clear(self):
+        self.drums = []
+        self.emitAllChanged()
+
+    def clearAndRefill(self, drums):
+        self.drums = drums
+        self.emitAllChanged()
 
     def insertNew(self, drum, position = None):
         if position is not None:
@@ -78,3 +89,9 @@ class DrumModel(QAbstractListModel):
 
     def adjustNewest(self, **args):
         self.adjust(self.newestIndex, **args)
+
+    def nameExists(self, name):
+        return name in self.nameList()
+
+    def nameList(self):
+        return [drum.name for drum in self.drums]

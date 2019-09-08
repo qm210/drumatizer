@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import * # pylint: disable=unused-import
 from PyQt5.QtCore import Qt, QFile, QFileInfo, QIODevice, QByteArray, QBuffer, QTextStream, pyqtSignal
 from PyQt5.QtMultimedia import QAudioOutput, QAudioFormat, QAudioDeviceInfo, QAudio
 from datetime import datetime
@@ -47,7 +47,7 @@ class MayRenderer(QWidget):
         self.buttonCopy.clicked.connect(self.copyToClipboard)
         self.buttonPaste = QPushButton('Paste ↴', self)
         self.buttonPaste.clicked.connect(self.pasteClipboard)
-        self.buttonClear = QPushButton('X', self)
+        self.buttonClear = QPushButton('×', self)
         self.buttonClear.clicked.connect(self.clearEditor)
         self.codeEditor = QPlainTextEdit(self)
         self.codeEditor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
@@ -105,6 +105,8 @@ class MayRenderer(QWidget):
 
     def updatePlayingUI(self, keepActive = False):
         self.renderButton.setText('shut the fuck up' if self.playing else 'send to hell')
+        if not self.playing and not keepActive:
+            self.progressBar.setValue(0)
         self.progressBar.setEnabled(self.playing if not keepActive else True)
         self.pauseButton.setEnabled(self.playing if not keepActive else True)
         self.pauseButton.setText('||' if (self.playing and self.audiooutput.state() != QAudio.SuspendedState) else '▶')

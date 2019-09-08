@@ -73,7 +73,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.clone = False
 
     def getName(self):
-        return self.editName.text() or '(unnamed)'
+        return self.editName.text()
 
     def getPointNumber(self):
         return self.editPointNumber.value()

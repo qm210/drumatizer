@@ -44,6 +44,8 @@ class Envelope:
         if parameters is not None:
             self.parameters = parameters
 
+    def adjustParameter(self, parName, parValue):
+        self.parameters.update({parName: parValue})
 
     def setPoints(self, points):
         self.points = points
@@ -95,7 +97,7 @@ class EnvelopeModel(QAbstractListModel):
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.envelopes[index.row()].name
+            return self.envelopes[index.row()].__repr__()
 
     def rowCount(self, index = None):
         return len(self.envelopes)
@@ -108,6 +110,17 @@ class EnvelopeModel(QAbstractListModel):
                 return modelIndex
         except ValueError:
             return None
+
+    def emitAllChanged(self):
+        self.dataChanged.emit(self.createIndex(0,0), self.createIndex(self.rowCount(),0))
+
+    def clear(self):
+        self.envelopes = []
+        self.emitAllChanged()
+
+    def clearAndRefill(self, envelopes):
+        self.envelopes = [deepcopy(env) for env in envelopes]
+        self.emitAllChanged()
 
     def insertNew(self, envelope, position = None):
         newEnvelope = deepcopy(envelope)
@@ -137,6 +150,12 @@ class EnvelopeModel(QAbstractListModel):
     def adjustNewest(self, **args):
         self.adjust(self.newestIndex, **args)
 
+    def nameExists(self, name):
+        return name in self.nameList()
+
+    def nameList(self):
+        return [envelope.name for envelope in self.envelopes]
+
 
 defaultAmplEnvelope = Envelope(
     name = '(default)',
@@ -146,7 +165,8 @@ defaultAmplEnvelope = Envelope(
         EnvelopePoint(0.05, 1.0, name = 'attack', fixedValue = True),
         EnvelopePoint(0.50, 0.5, name = 'decay'),
         EnvelopePoint(1.50, 0.0, name = 'sustain')
-    ])
+    ],
+    parameters = {'tryExpFit': False})
 
 defaultFreqEnvelope = Envelope(
     name = '(default)',

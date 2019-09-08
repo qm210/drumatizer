@@ -1,11 +1,15 @@
 from PyQt5.QtCore import QAbstractListModel, Qt
 from random import choice
 
-layerTypes = ['Sine Oscillator', 'Saw Oscillator', 'Square Oscillator', 'Triangle Osciallator', 'White Pseudonoise', 'Perlin Noise']
+layerTypes = ['SIN', 'SAW', 'SQU', 'TRI', 'WHTNS', 'PRLNS']
 distTypes = ['Overdrive', 'Waveshape', 'FM', 'Lo-Fi']
 
 
 class Layer:
+
+    unitVolume = 1e-2
+    unitDetune = 1e-3
+    unitStereoDelay = 1e-6
 
     def __init__(self, amplEnv = None, freqEnv = None, distEnv = None):
         self.name = self.talkSomeTeam210Shit()
@@ -18,14 +22,14 @@ class Layer:
         self.distOff = True
         self.volume = 100
         self.mute = False
+        self.detune = 0
+        self.stereodelay = 0
         # TODO: change stereo-delay per sample -- extend the synth in order to assemble L and R separately?
         # for now, can just apply chorus in .may language separately
 
     def __repr__(self):
-        if self.mute:
-            return 'MUTE {} ({})'.format(self.name, self.type)
-        else:
-            return '{}% {} ({})'.format(self.volume, self.name, self.type)
+        volumeRepr = '{}%'.format(self.volume) if not self.mute else 'MUTED'
+        return '{} ({} × {} × {})'.format(self.name, volumeRepr, self.type, self.amplEnv.name)
 
     def adjust(self, **args):
         if 'name' in args:
@@ -48,30 +52,46 @@ class Layer:
             self.volume = args['volume']
         if 'mute' in args:
             self.mute = args['mute']
+        if 'detune' in args:
+            self.detune = args['detune']
+        if 'stereodelay' in args:
+            self.stereodelay = args['stereodelay']
 
 
-    def talkSomeTeam210Shit(self):
+    def talkSomeTeam210Shit(self, skip = []):
         '''
         putting the FUN in FUNction!
         '''
-        return choice([
+        allSentences = [
             'Are you ready for QoodMusic?',
             'Is this already layer NR4?',
             'Is this French Cheese!?',
             'Once you offend, you cannot stop',
             'Something with 150 kcal',
-            'Is this a psychological effect?',
+            'Just. A. Psychological. Effect!',
             'Sucht euch mal besser einen Musiker',
             'Irgendwas is ja immir',
             'Ah, der Bus mit den Leuten!',
-            'You love Team210, secretly',
-            'More Curry',
+            'Vote for Team210, these are cool guys',
+            'More Currrrrrrrrrrrrry',
             'From the guys that brought to you: \'Für Elite\'',
-            'I hope these Germans are here on friendly purpose',
+            'I hope these Germans are here on friendly terms',
             'QM might have lost his t-shirt in your sauna..?',
             'PFEFFERSPRAY',
-            'you have to be in the lake to be the lake'
-        ])
+            'HEY BROSKI; WHAT\'S UP, BROSKI??',
+            'you have to be in the lake to be the lake',
+            'They are smoking beer inside'
+        ]
+        sentences = [s for s in allSentences if s not in skip]
+        if sentences:
+            return choice(sentences)
+        else:
+            suffix = '!'
+            while True:
+                sentence = 'Now you\'re just lazy' + suffix
+                if sentence not in skip:
+                    return sentence
+                suffix = '...' + suffix
 
 
 class LayerModel(QAbstractListModel):
@@ -83,9 +103,9 @@ class LayerModel(QAbstractListModel):
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.layers[index.row()].name
+            return self.layers[index.row()].__repr__()
 
-    def rowCount(self, index):
+    def rowCount(self, index = None):
         return len(self.layers)
 
     def indexOf(self, layer):
@@ -96,6 +116,17 @@ class LayerModel(QAbstractListModel):
                 return modelIndex
         except ValueError:
             return None
+
+    def emitAllChanged(self):
+        self.dataChanged.emit(self.createIndex(0,0), self.createIndex(self.rowCount(),0))
+
+    def clear(self):
+        self.layers = []
+        self.emitAllChanged()
+
+    def clearAndRefill(self, layers):
+        self.layers = layers
+        self.emitAllChanged()
 
     def insertNew(self, layer, position = None):
         if position is not None:
@@ -123,3 +154,14 @@ class LayerModel(QAbstractListModel):
 
     def adjustNewest(self, **args):
         self.adjust(self.newestIndex, **args)
+
+    def nameExists(self, name):
+        return name in self.nameList()
+
+    def nameList(self):
+        return [layer.name for layer in self.layers]
+
+    def swapLayers(self, numericalIndex, numericalNextIndex):
+        if numericalIndex != numericalNextIndex:
+            self.layers[numericalIndex], self.layers[numericalNextIndex] = self.layers[numericalNextIndex], self.layers[numericalIndex]
+            self.emitAllChanged()

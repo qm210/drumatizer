@@ -54,8 +54,8 @@ class MainWindow(QWidget):
     def initLayouts(self):
         self.mainSplit = QHBoxLayout()
 
-        self.mainSplit.addWidget(self.drumWidget, 66)
-        self.mainSplit.addWidget(self.renderWidget, 33)
+        self.mainSplit.addWidget(self.drumWidget, 68)
+        self.mainSplit.addWidget(self.renderWidget, 32)
 
         self.setLayout(self.mainSplit)
 
