@@ -30,7 +30,7 @@ from struct import *
 
 class SFXGLWidget(QOpenGLWidget,QObject):
 
-    def __init__(self, parent, samplerate = 44100, duration = 10, texsize = 512):
+    def __init__(self, parent, samplerate, duration, texsize):
         QOpenGLWidget.__init__(self, parent)
         self.move(10000.,1000.)
         self.program = 0

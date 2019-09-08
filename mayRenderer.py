@@ -11,10 +11,15 @@ class MayRenderer(QWidget):
     shouldsave = pyqtSignal()
 
     texsize = 512
+    samplerate = 44100
+
+    shaderHeader = '#version 130\n uniform float iTexSize;\n uniform float iBlockOffset;\n uniform float iSampleRate;\n\n'
 
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
+
+        self.blocksize = (self.texsize*self.texsize)/self.samplerate
 
         self.initState()
         self.initUI()
@@ -63,25 +68,30 @@ class MayRenderer(QWidget):
         self.renderButton.clicked.connect(self.pressRenderShader)
         self.renderLengthBox = QDoubleSpinBox(self)
         self.renderLengthBox.setMinimum(0)
-        self.renderLengthBox.setValue(20)
-        self.renderLengthBox.setSingleStep(1)
+        self.renderLengthBox.setValue(4*self.blocksize - .01)
+        self.renderLengthBox.setSingleStep(self.blocksize)
         self.renderLengthBox.setSuffix(' sec')
         self.renderLengthBox.setToolTip('render length')
-        self.renderVolumeSlider = QSlider(Qt.Horizontal)
-        self.renderVolumeSlider.setMaximum(100)
-        self.renderVolumeSlider.setValue(self.initVolume * 100)
-        self.renderVolumeSlider.setToolTip('volume')
-        self.renderVolumeSlider.sliderMoved.connect(self.setVolume)
+        self.renderBpmBox = QSpinBox(self)
+        self.renderBpmBox.setRange(1, 999)
+        self.renderBpmBox.setValue(160)
+        self.renderBpmBox.setPrefix('BPM ')
+        self.playbackVolumeSlider = QSlider(Qt.Horizontal)
+        self.playbackVolumeSlider.setMaximum(100)
+        self.playbackVolumeSlider.setValue(self.initVolume * 100)
+        self.playbackVolumeSlider.setToolTip('volume')
+        self.playbackVolumeSlider.sliderMoved.connect(self.setVolume)
         self.renderBar.addWidget(self.renderButton, 60)
+        self.renderBar.addWidget(self.renderBpmBox, 20)
         self.renderBar.addWidget(self.renderLengthBox, 20)
-        self.renderBar.addWidget(self.renderVolumeSlider, 20)
 
         self.progressBar = QProgressBar(self)
         self.progressBar.setEnabled(False)
         self.pauseButton = QPushButton(self)
         self.pauseButton.setEnabled(False)
         self.pauseButton.clicked.connect(self.pressPauseButton)
-        self.playbackBar.addWidget(self.progressBar, 80)
+        self.playbackBar.addWidget(self.progressBar, 60)
+        self.playbackBar.addWidget(self.playbackVolumeSlider, 20)
         self.playbackBar.addWidget(self.pauseButton, 20)
 
         self.codeButtonBar.addWidget(self.buttonCopy)
@@ -113,7 +123,7 @@ class MayRenderer(QWidget):
 
     def initAudio(self):
         self.audioformat = QAudioFormat()
-        self.audioformat.setSampleRate(44100)
+        self.audioformat.setSampleRate(self.samplerate)
         self.audioformat.setChannelCount(2)
         self.audioformat.setSampleSize(32)
         self.audioformat.setCodec('audio/pcm')
@@ -124,8 +134,12 @@ class MayRenderer(QWidget):
         self.audiooutput = QAudioOutput(self.audioformat)
         self.audiooutput.setVolume(self.initVolume)
 
+    def paste(self, source):
+        self.codeEditor.setPlainText(source)
+        self.codeEditor.setFocus()
+
     def pasteClipboard(self):
-        self.codeEditor.setPlainText(QApplication.clipboard().text())
+        self.codeEditor.setPlainText(self.shaderHeader + QApplication.clipboard().text())
         self.codeEditor.setFocus()
 
     def copyToClipboard(self):
@@ -185,13 +199,11 @@ class MayRenderer(QWidget):
         self.updatePlayingUI(keepActive = True)
 
     def renderShaderAndPlay(self):
-        starttime = datetime.now()
 
         # this is the SUPER FUN BITCRUSHER for the test shader
         nr_bits = randint(128, 8192)
 
-        shaderHeader = '#version 130\n uniform float iTexSize;\n uniform float iBlockOffset;\n uniform float iSampleRate;\n\n'
-        shaderSource = shaderHeader + """
+        shaderSource = self.shaderHeader + """
 void main()
 {
    float t = (iBlockOffset + gl_FragCoord.x + gl_FragCoord.y*iTexSize) / iSampleRate;
@@ -206,6 +218,8 @@ void main()
         shaderSource = shaderSource.replace('BITS', str(nr_bits))
         print(nr_bits, 'bits for the SUPER FUN BITCRUSHER in the test shader.')
 
+        starttime = datetime.now()
+
         try:
             if self.useWatchFile:
                 watchFile = QFile(self.watchFileName)
@@ -216,7 +230,7 @@ void main()
                     return
                 textStream = QTextStream(watchFile)
                 textStream.setCodec('utf-8')
-                shaderSource = shaderHeader + textStream.readAll()
+                shaderSource = self.shaderHeader + textStream.readAll()
 
             else:
                 code = self.codeEditor.toPlainText()
@@ -225,6 +239,10 @@ void main()
 
         except:
             raise
+
+        t_beat = 60 / float(self.renderBpmBox.value())
+        print('repeat beat every', t_beat, 'seconds')
+        shaderSource = shaderSource.replace('T_BEAT', str(float(t_beat)))
 
         print(shaderSource)
         print(self.renderLengthBox.value())
@@ -276,4 +294,4 @@ void main()
         self.updatePlayingUI()
 
     def setVolume(self):
-        self.audiooutput.setVolume(self.renderVolumeSlider.value() * .01)
+        self.audiooutput.setVolume(self.playbackVolumeSlider.value() * .01)

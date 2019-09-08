@@ -6,7 +6,7 @@
 #########################################################################
 
 from PyQt5.QtWidgets import * # pylint: disable=unused-import
-from PyQt5.QtCore import Qt, QItemSelectionModel
+from PyQt5.QtCore import Qt, pyqtSignal, QItemSelectionModel, QFile, QTextStream
 
 from DrumModel import *
 from LayerModel import *
@@ -16,6 +16,8 @@ from SettingsDialog import *
 
 class MayDrumatizer(QWidget):
 
+    shaderCreated = pyqtSignal(str)
+
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
@@ -23,6 +25,8 @@ class MayDrumatizer(QWidget):
         self.maxTime = 2
         self.minValue = {'amplitude': 0, 'frequency':    20, 'distortion': 0}
         self.maxValue = {'amplitude': 1, 'frequency': 12000, 'distortion': 2}
+
+        self.renderTemplate = 'template.drumatize'
 
         self.initLayouts()
         self.initSignals()
@@ -484,13 +488,20 @@ class MayDrumatizer(QWidget):
             self.amplEnvWidget.update()
 
     def layerRenderSolo(self):
-        print("THIS IS EPIC!")
-        print()
-        print("and hard. I'm not there yet.")
-        print()
-        print()
-        print("8(")
-        print()
+        sourceTemplateFile = QFile(self.renderTemplate)
+        if not sourceTemplateFile.open(QFile.ReadOnly | QFile.Text):
+            QMessageBox.warning('Could not read template file {}'.format(self.renderTemplate))
+            return
+        sourceTemplateStream = QTextStream(sourceTemplateFile)
+        sourceTemplateStream.setCodec('utf-8')
+        sourceTemplate = sourceTemplateStream.readAll()
+
+        drumatize = 'sin(2.*PI*110.*_TIME) * exp(-2.*_TIME)'
+        drumatizeL = drumatize.replace('_TIME', '_t')
+        drumatizeR = drumatize.replace('_TIME', '(_t-1.e-3)')
+        sourceShader = sourceTemplate.replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
+
+        self.shaderCreated.emit(sourceShader)
 
 
     def layerSetName(self, name):

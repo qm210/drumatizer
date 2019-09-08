@@ -38,7 +38,7 @@ class MainWindow(QWidget):
             #QApplication.quit()
         if event.key() == Qt.Key_Return and (event.modifiers() & Qt.ControlModifier):
             self.renderWidget.pasteClipboard()
-            self.renderWidget.renderShader()
+            self.renderWidget.renderShaderAndPlay()
 
     def initState(self):
         self.autosaveInterval = 30e3 # every 30 sec
@@ -46,17 +46,15 @@ class MainWindow(QWidget):
     def initUI(self):
         self.drumWidget = MayDrumatizer(self)
         self.renderWidget = MayRenderer(self)
-        # ... moar widscheddddz!
+        self.drumWidget.shaderCreated.connect(self.sendShaderToRenderer)
 
         self.initLayouts()
         self.setStyleSheet(mayStyle)
 
     def initLayouts(self):
         self.mainSplit = QHBoxLayout()
-
         self.mainSplit.addWidget(self.drumWidget, 68)
         self.mainSplit.addWidget(self.renderWidget, 32)
-
         self.setLayout(self.mainSplit)
 
     def autoload(self):
@@ -64,6 +62,10 @@ class MainWindow(QWidget):
 
     def autosave(self):
         print('mock autosave...')
+
+    def sendShaderToRenderer(self, shaderSource):
+        self.renderWidget.paste(shaderSource)
+        self.renderWidget.renderShaderAndPlay()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
