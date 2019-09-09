@@ -30,7 +30,7 @@ from struct import *
 
 class SFXGLWidget(QOpenGLWidget,QObject):
 
-    def __init__(self, parent, samplerate, duration, texsize):
+    def __init__(self, parent, samplerate, duration, texsize, moreUniforms = {}):
         QOpenGLWidget.__init__(self, parent)
         self.move(10000.,1000.)
         self.program = 0
@@ -47,6 +47,7 @@ class SFXGLWidget(QOpenGLWidget,QObject):
         self.duration_real = float(self.nsamples_real)/float(self.samplerate)
         self.image = None
         self.music = None
+        self.moreUniforms = moreUniforms
 
     def initializeGL(self):
         print("Init.")
@@ -94,6 +95,11 @@ class SFXGLWidget(QOpenGLWidget,QObject):
         self.iBlockOffsetLocation = glGetUniformLocation(self.program, 'iBlockOffset')
         self.iSampleRateLocation = glGetUniformLocation(self.program, 'iSampleRate')
 
+        self.uniformLocation = {}
+        for uniform in self.moreUniforms:
+            self.uniformLocation[uniform] = glGetUniformLocation(self.program, uniform)
+            glUniform1f(self.uniformLocation[uniform], float32(self.moreUniforms[uniform]))
+
         OpenGL.UNSIGNED_BYTE_IMAGES_AS_STRING = True
         music = bytearray(self.nblocks*self.blocksize*4)
 
@@ -119,5 +125,8 @@ class SFXGLWidget(QOpenGLWidget,QObject):
         music = (float32(music)-32768.)/32768.
         music = pack('<'+str(self.blocksize*self.nblocks*2)+'f', *music)
         self.music = music
+
+        #glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        #glDeleteTextures([self.texture])
 
         return 'Success.'

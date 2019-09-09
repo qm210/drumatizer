@@ -2,45 +2,38 @@
 uniform float iTexSize;
 uniform float iBlockOffset;
 uniform float iSampleRate;
-
+uniform float SPB;
 #define PI radians(180.)
 float clip(float a) { return clamp(a,-1.,1.); }
 float theta(float x) { return smoothstep(0.,1e-3,clamp(x,0.,1e-3)); }
 float _sin(float a) { return sin(2. * PI * mod(a,1.)); }
 float freqC1(float note){ return 32.7 * pow(2., note/12.); }
-float fhelp(float x) { return 1. + .333*x; } // 1. + .33333*x + .1*x*x + .02381*x*x*x + .00463*x*x*x*x;
-
-const float Fsample = 44100.; // CAUTION: THIS SHOULD BE 44100. FOR NR4.
-
+float fhelp(float x) { return 1. + .333*x; }
 float s_atan(float a) { return 2./PI * atan(a); }
 
 #define CONSIDER_BEATS 4
-
 vec2 mainSynth(float time)
 {
-    float sL = 0.;
-    float sR = 0.;
     float dL = 0.;
     float dR = 0.;
-
-    time = mod(time, 21.771429);
-
     float amaydrumL, amaydrumR, _t, env;
-
     amaydrumL = 0.;
     amaydrumR = 0.;
+    float t_beat = 4. * SPB;
+    _t = mod(time, t_beat);
+    int last_beats = min(int(time/t_beat), CONSIDER_BEATS);
 
-    for(int n=0; n<CONSIDER_BEATS; n++)
+    for(int n=0; n<=last_beats; n++)
     {
-        _t = time - float(n) * T_BEAT;
-        env = theta(_t) * theta(float(CONSIDER_BEATS)*T_BEAT - _t);
+        env = theta(_t) * theta(float(CONSIDER_BEATS) * t_beat - _t);
         amaydrumL = AMAYDRUMATIZE_L;
         amaydrumR = AMAYDRUMATIZE_R;
-        dL += amaydrumL;
-        dR += amaydrumR;
+        dL += env * amaydrumL;
+        dR += env * amaydrumR;
+        _t += t_beat;
     }
 
-    return env * vec2(dL, dR);
+    return vec2(s_atan(.8*dL), s_atan(.8*dR));
 }
 
 void main()

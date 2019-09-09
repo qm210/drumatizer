@@ -496,9 +496,9 @@ class MayDrumatizer(QWidget):
         sourceTemplateStream.setCodec('utf-8')
         sourceTemplate = sourceTemplateStream.readAll()
 
-        drumatize = 'sin(2.*PI*110.*_TIME) * exp(-2.*_TIME)'
-        drumatizeL = drumatize.replace('_TIME', '_t')
-        drumatizeR = drumatize.replace('_TIME', '(_t-1.e-3)')
+        drumatize = '_sin(220.*_PROGTIME) * exp(-2.*_ENVTIME)'
+        drumatizeL = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
+        drumatizeR = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '(_t-1.e-3)')
         sourceShader = sourceTemplate.replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
 
         self.shaderCreated.emit(sourceShader)

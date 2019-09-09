@@ -23,7 +23,7 @@ class Layer:
         self.volume = 100
         self.mute = False
         self.detune = 0
-        self.stereodelay = 0
+        self.stereodelay = 0 # should actually differentiate between _ENVTIME (no stereodelay) and _PROGTIME (apply stereodelay to R channel)
         # TODO: change stereo-delay per sample -- extend the synth in order to assemble L and R separately?
         # for now, can just apply chorus in .may language separately
 

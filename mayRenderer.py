@@ -56,6 +56,9 @@ class MayRenderer(QWidget):
         self.buttonClear.clicked.connect(self.clearEditor)
         self.codeEditor = QPlainTextEdit(self)
         self.codeEditor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        #self.codeEditor.setCenterOnScroll(True)
+        #self.codeEditor.textChanged.connect(self.formatEditor) # this gives a recursion problem, but how to filter e.g. tabs?
+        self.codeEditor.setTabStopWidth(14)
         self.watchFileCheckBox = QCheckBox('watch file:', self)
         self.watchFileCheckBox.stateChanged.connect(self.toggleWatchFile)
         self.watchFileNameBox = QLineEdit(self)
@@ -76,6 +79,7 @@ class MayRenderer(QWidget):
         self.renderBpmBox.setRange(1, 999)
         self.renderBpmBox.setValue(160)
         self.renderBpmBox.setPrefix('BPM ')
+        self.renderBpmBox.setToolTip('--> determines SPB')
         self.playbackVolumeSlider = QSlider(Qt.Horizontal)
         self.playbackVolumeSlider.setMaximum(100)
         self.playbackVolumeSlider.setValue(self.initVolume * 100)
@@ -135,12 +139,14 @@ class MayRenderer(QWidget):
         self.audiooutput.setVolume(self.initVolume)
 
     def paste(self, source):
-        self.codeEditor.setPlainText(source)
+        self.codeEditor.clear()
+        source = source.replace('    ','\t').replace('   ', '\t')
+        self.codeEditor.insertPlainText(source)
         self.codeEditor.setFocus()
+        self.codeEditor.ensureCursorVisible()
 
     def pasteClipboard(self):
-        self.codeEditor.setPlainText(self.shaderHeader + QApplication.clipboard().text())
-        self.codeEditor.setFocus()
+        self.paste(self.shaderHeader + QApplication.clipboard().text())
 
     def copyToClipboard(self):
         print("TODO: Implement copyToClipboard()")
@@ -149,6 +155,10 @@ class MayRenderer(QWidget):
     def clearEditor(self):
         self.codeEditor.setPlainText('')
         self.codeEditor.setFocus()
+
+#    def formatEditor(self):
+#        plainText = self.codeEditor.toPlainText().replace('\t', 4*' ')
+#        self.codeEditor.setPlainText(plainText)
 
     def toggleWatchFile(self, state):
         if not self.useWatchFile and state == Qt.Checked:
@@ -182,11 +192,10 @@ class MayRenderer(QWidget):
 
     def pressRenderShader(self):
         self.playing = not self.playing
-        self.updatePlayingUI()
         if self.playing :
             self.renderShaderAndPlay()
         else :
-            self.audiooutput.stop()
+            self.stopShader()
 
     def pressPauseButton(self):
         state = self.audiooutput.state()
@@ -198,7 +207,13 @@ class MayRenderer(QWidget):
 
         self.updatePlayingUI(keepActive = True)
 
+    def stopShader(self):
+        self.audiooutput.stop()
+        self.updatePlayingUI()
+
     def renderShaderAndPlay(self):
+        self.playing = True
+        self.updatePlayingUI()
 
         # this is the SUPER FUN BITCRUSHER for the test shader
         nr_bits = randint(128, 8192)
@@ -240,9 +255,10 @@ void main()
         except:
             raise
 
-        t_beat = 60 / float(self.renderBpmBox.value())
-        print('repeat beat every', t_beat, 'seconds')
-        shaderSource = shaderSource.replace('T_BEAT', str(float(t_beat)))
+        uniforms = {}
+
+        SPB = 60 / float(self.renderBpmBox.value())
+        uniforms.update({'SPB': SPB})
 
         print(shaderSource)
         print(self.renderLengthBox.value())
@@ -253,7 +269,7 @@ void main()
             print('couldn\'t read duration field. take 10secs.')
             duration = 10
 
-        glwidget = SFXGLWidget(self, self.audioformat.sampleRate(), duration, self.texsize)
+        glwidget = SFXGLWidget(self, self.audioformat.sampleRate(), duration, self.texsize, moreUniforms = uniforms)
 
         glwidget.show()
         self.log = glwidget.newShader(shaderSource)
