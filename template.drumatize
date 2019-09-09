@@ -7,9 +7,57 @@ uniform float SPB;
 float clip(float a) { return clamp(a,-1.,1.); }
 float theta(float x) { return smoothstep(0.,1e-3,clamp(x,0.,1e-3)); }
 float _sin(float a) { return sin(2. * PI * mod(a,1.)); }
+float _sin_(float a, float p) { return sin(2. * PI * mod(a,1.) + p); }
+float _sq(float a) { return sign(2.*fract(a) - 1.); }
+float _tri(float a) { return (4.*abs(fract(a)-.5) - 1.); }
+float _saw(float a) { return (2.*fract(a) - 1.); }
 float freqC1(float note){ return 32.7 * pow(2., note/12.); }
 float fhelp(float x) { return 1. + .333*x; }
+float pseudorandom(float x) { return fract(sin(dot(vec2(x),vec2(12.9898,78.233))) * 43758.5453); }
 float s_atan(float a) { return 2./PI * atan(a); }
+float linmix(float x, float a, float b, float y0, float y1) { return mix(y0,y1,clamp(a*x+b,0.,1.)); }
+
+float drop_phase(float time, float t1, float f0, float f1)
+{
+    float t = min(time, t1);
+    float phi = f0*t + .5*(f1-f0)/t1*t*t;
+    if(time > t1)
+    {
+        phi += f1 * (time - t1);
+    }
+    return phi;
+}
+
+float drop2_phase(float time, float t1, float t2, float f0, float f1, float f2)
+{
+    float t = min(time, t1);
+    float phi = f0*t + .5*(f1-f0)/t1*t*t;
+    if(time > t1)
+    {
+        t = min(time, t2);
+        phi += f1*t - t1*f2 + .5*(f2-f1)/(t2-t1)*(t*t - t1*t1);
+    }
+    if(time > t2)
+    {
+        phi += f2 * (time-t2);
+    }
+    return phi;
+}
+
+float lpnoise(float t, float fq)
+{
+    t *= fq;
+    float tt = fract(t);
+    float tn = t - tt;
+    return mix(pseudorandom(floor(tn) / fq), pseudorandom(floor(tn + 1.0) / fq), smoothstep(0.0, 1.0, tt));
+}
+
+float sinshape(float x, float amt, float parts)
+{
+    return (1.-amt) * x + amt * sign(x) * 0.5 * (1. - cos(parts*PI*x));
+}
+
+//PARAMCODE
 
 #define CONSIDER_BEATS 4
 vec2 mainSynth(float time)

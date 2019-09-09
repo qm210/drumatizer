@@ -13,6 +13,7 @@ from LayerModel import *
 from EnvelopeModel import *
 from EnvelopeWidget import *
 from SettingsDialog import *
+from drumatize import Drumatize
 
 class MayDrumatizer(QWidget):
 
@@ -36,24 +37,24 @@ class MayDrumatizer(QWidget):
     def initLayouts(self):
         # drum widget
         self.drumList = QComboBox()
-        self.drum_BtnAdd = QPushButton('+')
-        self.drum_BtnClone = QPushButton('C')
-        self.drum_BtnDel = QPushButton('–')
-        self.drum_BtnEdit = QPushButton('...')
-        self.drum_BtnExport = QPushButton('↗')
-        self.drum_BtnImport = QPushButton('↘')
-        self.drum_BtnRender = QPushButton('Render >>')
+        self.drumBtnAdd = QPushButton('+')
+        self.drumBtnClone = QPushButton('C')
+        self.drumBtnDel = QPushButton('–')
+        self.drumBtnEdit = QPushButton('...')
+        self.drumBtnExport = QPushButton('↗')
+        self.drumBtnImport = QPushButton('↘')
+        self.drumBtnRender = QPushButton('Render >>')
 
         self.drumLayout = QHBoxLayout()
         self.drumLayout.addWidget(QLabel('Drum:'))
         self.drumLayout.addWidget(self.drumList, 4)
-        self.drumLayout.addWidget(self.drum_BtnAdd)
-        self.drumLayout.addWidget(self.drum_BtnClone)
-        self.drumLayout.addWidget(self.drum_BtnDel)
-        self.drumLayout.addWidget(self.drum_BtnEdit)
-        self.drumLayout.addWidget(self.drum_BtnExport)
-        self.drumLayout.addWidget(self.drum_BtnImport)
-        self.drumLayout.addWidget(self.drum_BtnRender)
+        self.drumLayout.addWidget(self.drumBtnAdd)
+        self.drumLayout.addWidget(self.drumBtnClone)
+        self.drumLayout.addWidget(self.drumBtnDel)
+        self.drumLayout.addWidget(self.drumBtnEdit)
+        self.drumLayout.addWidget(self.drumBtnExport)
+        self.drumLayout.addWidget(self.drumBtnImport)
+        self.drumLayout.addWidget(self.drumBtnRender)
 
         self.drumGroup = QGroupBox()
         self.drumGroup.setLayout(self.drumLayout)
@@ -278,6 +279,8 @@ class MayDrumatizer(QWidget):
 
 
     def initSignals(self):
+        self.drumBtnRender.pressed.connect(self.drumRender)
+
         self.layerMenuBtnAdd.pressed.connect(self.layerAdd)
         self.layerMenuBtnDel.pressed.connect(self.layerDelete)
         self.layerMenuBtnSwap.pressed.connect(self.layerSwap)
@@ -383,7 +386,16 @@ class MayDrumatizer(QWidget):
 ################################ MODEL FUNCTIONALITY ################################
 #####################################################################################
 
-################################## DRUM DRUMS #####################################
+    def loadSourceTemplate(self):
+        sourceTemplateFile = QFile(self.renderTemplate)
+        if not sourceTemplateFile.open(QFile.ReadOnly | QFile.Text):
+            QMessageBox.warning('Could not read template file {}'.format(self.renderTemplate))
+            return
+        sourceTemplateStream = QTextStream(sourceTemplateFile)
+        sourceTemplateStream.setCodec('utf-8')
+        return sourceTemplateStream.readAll()
+
+#################################### DRUMS ##########################################
 
     def anyDrums(self, moreThan):
         return self.drumModel.rowCount() > moreThan
@@ -411,6 +423,12 @@ class MayDrumatizer(QWidget):
         if index.isValid():
             self.drumList.setCurrentIndex(index.row())
 
+    def drumRender(self):
+        drumatize = Drumatize(self.currentDrum().layers).drumatize()
+        drumatizeL = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
+        drumatizeR = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '(_t-1.e-3)')
+        sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
+        self.shaderCreated.emit(sourceShader)
 
 ##################################### LAYERS ########################################
 
@@ -488,21 +506,12 @@ class MayDrumatizer(QWidget):
             self.amplEnvWidget.update()
 
     def layerRenderSolo(self):
-        sourceTemplateFile = QFile(self.renderTemplate)
-        if not sourceTemplateFile.open(QFile.ReadOnly | QFile.Text):
-            QMessageBox.warning('Could not read template file {}'.format(self.renderTemplate))
-            return
-        sourceTemplateStream = QTextStream(sourceTemplateFile)
-        sourceTemplateStream.setCodec('utf-8')
-        sourceTemplate = sourceTemplateStream.readAll()
-
-        drumatize = '_sin(220.*_PROGTIME) * exp(-2.*_ENVTIME)'
+        #drumatize = '_sin(220.*_PROGTIME) * exp(-2.*_ENVTIME)'
+        drumatize = Drumatize([self.currentLayer()]).drumatize()
         drumatizeL = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
         drumatizeR = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '(_t-1.e-3)')
-        sourceShader = sourceTemplate.replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
-
+        sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
         self.shaderCreated.emit(sourceShader)
-
 
     def layerSetName(self, name):
         self.currentLayer().adjust(name = name)
@@ -565,6 +574,7 @@ class MayDrumatizer(QWidget):
 
     def amplEnvSelectIndex(self, index):
         self.amplEnvList.selectionModel().setCurrentIndex(self.amplEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
+        self.currentLayer().amplEnv = self.currentAmplEnv()
 
     def amplEnvInsertAndSelect(self, envelope, position = None):
         self.amplEnvModel.insertNew(envelope, position)
@@ -647,6 +657,7 @@ class MayDrumatizer(QWidget):
 
     def freqEnvSelectIndex(self, index):
         self.freqEnvList.selectionModel().setCurrentIndex(self.freqEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
+        self.currentLayer().freqEnv = self.currentFreqEnv()
 
     def freqEnvInsertAndSelect(self, envelope, position = None):
         self.freqEnvModel.insertNew(envelope, position)
@@ -725,6 +736,7 @@ class MayDrumatizer(QWidget):
 
     def distEnvSelectIndex(self, index):
         self.distEnvList.selectionModel().setCurrentIndex(self.distEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
+        self.currentLayer().distEnv = self.currentDistEnv()
 
     def distEnvInsertAndSelect(self, envelope, position = None):
         self.distEnvModel.insertNew(envelope, position)
