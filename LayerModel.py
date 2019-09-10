@@ -1,5 +1,8 @@
 from PyQt5.QtCore import QAbstractListModel, Qt
 from random import choice
+import json
+
+from EnvelopeModel import EnvelopeEncoder
 
 layerTypes = ['SIN', 'SAW', 'SQU', 'TRI', 'WHTNS', 'PRLNS']
 distTypes = ['Overdrive', 'Waveshape', 'FM', 'Lo-Fi']
@@ -9,10 +12,10 @@ class Layer:
 
     unitVolume = 1e-2
     unitDetune = 1e-3
-    unitStereoDelay = 1e-6
+    unitStereoDelay = 1e-5
 
-    def __init__(self, amplEnv = None, freqEnv = None, distEnv = None):
-        self.name = self.talkSomeTeam210Shit()
+    def __init__(self, name = None, amplEnv = None, freqEnv = None, distEnv = None):
+        self.name = name or self.talkSomeTeam210Shit()
         self.type = layerTypes[0]
         self.amplEnv = amplEnv
         self.freqEnv = freqEnv
@@ -27,7 +30,7 @@ class Layer:
         # TODO: change stereo-delay per sample -- extend the synth in order to assemble L and R separately?
         # for now, can just apply chorus in .may language separately
 
-    def __repr__(self):
+    def __str__(self):
         volumeRepr = '{}%'.format(self.volume) if not self.mute else 'MUTED'
         return '{} ({} × {} × {})'.format(self.name, volumeRepr, self.type, self.amplEnv.name)
 
@@ -80,7 +83,8 @@ class Layer:
             'PFEFFERSPRAY',
             'HEY BROSKI; WHAT\'S UP, BROSKI??',
             'you have to be in the lake to be the lake',
-            'They are smoking beer inside'
+            'They are smoking beer inside',
+            'Style is not a crime'
         ]
         sentences = [s for s in allSentences if s not in skip]
         if sentences:
@@ -103,7 +107,7 @@ class LayerModel(QAbstractListModel):
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.layers[index.row()].__repr__()
+            return self.layers[index.row()].__str__()
 
     def rowCount(self, index = None):
         return len(self.layers)
@@ -165,3 +169,47 @@ class LayerModel(QAbstractListModel):
         if numericalIndex != numericalNextIndex:
             self.layers[numericalIndex], self.layers[numericalNextIndex] = self.layers[numericalNextIndex], self.layers[numericalIndex]
             self.emitAllChanged()
+
+
+class LayerEncoder(json.JSONEncoder):
+
+    # pylint: disable=method-hidden
+    def default(self, obj):
+        if isinstance(obj, Layer):
+            return {
+                '__drumatizeLayer__': True,
+                'name': obj.name,
+                'type': obj.type,
+                'amplEnv': json.dumps(obj.amplEnv, cls = EnvelopeEncoder),
+                'freqEnv': json.dumps(obj.freqEnv, cls = EnvelopeEncoder),
+                'distEnv': json.dumps(obj.distEnv, cls = EnvelopeEncoder),
+                'distType': obj.distType,
+                'distParam': obj.distParam,
+                'distOff': obj.distOff,
+                'volume': obj.volume,
+                'mute': obj.mute,
+                'detune': obj.detune,
+                'stereodelay': obj.stereodelay
+            }
+        else:
+            return super().default(obj)
+
+    @classmethod
+    def decode(self, dict):
+        if '__drumatizeLayer__' in dict:
+            layer = Layer(
+                name = dict['name'],
+                amplEnv = json.loads(dict['amplEnv'], object_hook = EnvelopeEncoder.decode),
+                freqEnv = json.loads(dict['freqEnv'], object_hook = EnvelopeEncoder.decode),
+                distEnv = json.loads(dict['distEnv'], object_hook = EnvelopeEncoder.decode)
+            )
+            layer.type = dict['type']
+            layer.distType = dict['distType']
+            layer.distParam = dict['distParam']
+            layer.distOff = dict['distOff']
+            layer.volume = dict['volume']
+            layer.mute = dict['mute']
+            layer.detune = dict['detune']
+            layer.stereodelay = dict['stereodelay']
+            return layer
+        return dict

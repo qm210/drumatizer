@@ -48,51 +48,74 @@ class Drumatize:
                 print('frequency envelope {} is invalid. Exiting...'.format(freqEnv.name))
                 raise ValueError
 
-            glslPhase = '0'
+            glslPhase = GLfloat(0)
             # glslDistEnv = self.layer.distEnv
-
             glslVolume = GLfloat(layer.volume * layer.unitVolume)
+            glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
 
-            layerResult = '{}*{}'.format(glslVolume, self.freqFunction(layer.type, glslFreq, glslPhase))
+            layerResult = f'{glslVolume}*{self.freqFunction(layer.type, glslFreq, glslPhase, glslDetuneFactor)}'
             groupedResults[layer.amplEnv].append(layerResult)
 
         groupResults = []
         for amplEnv in amplEnvSet:
             groupResults.append('{}*({})'.format(glslAmplEnvs[amplEnv], '+'.join(groupedResults[amplEnv])))
 
-        return '+'.join(groupResults)
+        result = '+'.join(groupResults)
+
+        stereodelay = GLfloat(layer.stereodelay * layer.unitStereoDelay)
+        print("STEREODELAY IS", stereodelay)
+
+        _PROGTIME_R = f'(_t-{stereodelay})' if layer.stereodelay != 0 else '_t'
+        resultL = result.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
+        resultR = result.replace('_ENVTIME', '_t').replace('_PROGTIME', _PROGTIME_R)
+
+        return resultL, resultR
 
         # freqFunction = self.freqFunction(self.layer.type, freq, 0)
         # TODO: add option to add another envelope as phase.. heheh... hehehehe... --> nice reverb emulation and FM
 
-    def freqFunction(self, indicator, freq, phase):
-        phaseAdd = '' if phase == '0' else ('+' + phase)
-        phaseArgs = '({}*_PROGTIME{})'.format(freq, phaseAdd)
+    def freqFunction(self, indicator, freq, phase, detuneFactor):
+        noPhase = (phase == GLfloat(0))
+        noDetune = (detuneFactor == GLfloat(1))
 
         if indicator == 'SIN':
-            if phase == '0':
-                return '_sin({})'.format(freq)
+            if noPhase:
+                phaseArgs = f'{freq}*_PROGTIME'
+                func = '_sin'
             else:
-                return '_sin_({},{})'.format(freq, phase)
+                phaseArgs = f'{freq}*_PROGTIME,{phase}'
+                func = '_sin_'
 
-        elif indicator == 'SAW':
-            return '_saw' + phaseArgs
-
-        elif indicator == 'SQU':
-            return '_sq' + phaseArgs
-
-        elif indicator == 'TRI':
-            return '_tri' + phaseArgs
-
-        elif indicator == 'WHTNS':
-            return 'pseudorandom' + phaseArgs
+            if noDetune:
+                return f'_sin({phaseArgs})'
+            else:
+                return f'(.5*_sin({phaseArgs})+.5*_sin({detuneFactor}*{phaseArgs}))'
 
         elif indicator == 'PRLNS':
-            return 'lpnoise' + phaseArgs
+            if noDetune:
+                return f'lpnoise(_PROGTIME,{freq})'
+            else:
+                return f'(.5*lpnoise(_PROGTIME,{freq})+.5*lpnoise(_PROGTIME,{detuneFactor}*{freq}))'
 
         else:
-            print('freqFunction({},{},{}) is not defined. Exiting...'.format(indicator,freq,phase))
-            raise ValueError
+            phaseArgs = f'{freq}*_PROGTIME' + ('' if noPhase else f'+{phase}')
+
+            if indicator == 'SAW':
+                func = '_saw'
+            elif indicator == 'SQU':
+                func = '_sq'
+            elif indicator == 'TRI':
+                func = '_tri'
+            elif indicator == 'WHTNS':
+                func = 'pseudorandom'
+            else:
+                print(f'freqFunction({indicator},...) is not defined. Exiting...')
+                raise ValueError
+
+            if noDetune:
+                return f'{func}({phaseArgs})'
+            else:
+                return f'(.5*{func}({phaseArgs})+.5*{func}({detuneFactor}*{phaseArgs}))'
 
 
     def linearEnvelope(self, env):

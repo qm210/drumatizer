@@ -57,8 +57,6 @@ float sinshape(float x, float amt, float parts)
     return (1.-amt) * x + amt * sign(x) * 0.5 * (1. - cos(parts*PI*x));
 }
 
-//PARAMCODE
-
 #define CONSIDER_BEATS 4
 vec2 mainSynth(float time)
 {

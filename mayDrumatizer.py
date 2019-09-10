@@ -7,12 +7,15 @@
 
 from PyQt5.QtWidgets import * # pylint: disable=unused-import
 from PyQt5.QtCore import Qt, pyqtSignal, QItemSelectionModel, QFile, QTextStream
+from copy import deepcopy
+import json
 
 from DrumModel import *
 from LayerModel import *
 from EnvelopeModel import *
 from EnvelopeWidget import *
 from SettingsDialog import *
+from RenameReplaceDialog import *
 from drumatize import Drumatize
 
 class MayDrumatizer(QWidget):
@@ -32,7 +35,6 @@ class MayDrumatizer(QWidget):
         self.initLayouts()
         self.initSignals()
         self.initModelView()
-        self.initData()
 
     def initLayouts(self):
         # drum widget
@@ -83,12 +85,12 @@ class MayDrumatizer(QWidget):
         self.layerEditorVolumeSlider.setRange(0, 200)
         self.layerEditorVolumeLabel = QLabel('100%')
         self.layerEditorDetuneSlider = QSlider(Qt.Horizontal)
+        self.layerEditorDetuneSlider.setRange(0, 200)
         self.layerEditorDetuneSlider.setValue(0)
-        self.layerEditorDetuneSlider.setRange(-100, 100)
         self.layerEditorDetuneLabel = QLabel('0‰')
         self.layerEditorStereoDelaySlider = QSlider(Qt.Horizontal)
+        self.layerEditorStereoDelaySlider.setRange(0, 200)
         self.layerEditorStereoDelaySlider.setValue(0)
-        self.layerEditorStereoDelaySlider.setRange(-100, 100)
         self.layerEditorStereoDelayLabel = QLabel('0 ppm')
 
         self.layerEditorLayout.addWidget(QLabel('Layer:'), 0, 0)
@@ -238,6 +240,7 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit_WaveshapeParts.setSuffix(' parts')
         self.distMenuEdit_FMSource = QComboBox()
         self.distMenuEdit_FMSource.addItem('<src>')
+        self.distMenuEdit_FMSource.setMaximumWidth(300)
         self.distMenuEdit_LofiBits = QSpinBox()
         self.distMenuEdit_LofiBits.setRange(1, 2**16)
         self.distMenuEdit_LofiBits.setValue(2**13)
@@ -279,6 +282,12 @@ class MayDrumatizer(QWidget):
 
 
     def initSignals(self):
+        self.drumBtnAdd.pressed.connect(self.drumAdd)
+        self.drumBtnClone.pressed.connect(self.drumClone)
+        self.drumBtnDel.pressed.connect(self.drumDelete)
+        self.drumBtnEdit.pressed.connect(self.drumEdit)
+        self.drumBtnExport.pressed.connect(self.drumExport)
+        self.drumBtnImport.pressed.connect(self.drumImport)
         self.drumBtnRender.pressed.connect(self.drumRender)
 
         self.layerMenuBtnAdd.pressed.connect(self.layerAdd)
@@ -348,14 +357,14 @@ class MayDrumatizer(QWidget):
     def initData(self):
         defaultLayer = Layer(amplEnv = defaultAmplEnvelope, freqEnv = defaultFreqEnvelope, distEnv = defaultDistEnvelope)
 
-        defaultDrum = Drum()
-        defaultDrum.addLayer(defaultLayer)
-        defaultDrum.addAmplEnv(defaultAmplEnvelope)
-        defaultDrum.addFreqEnv(defaultFreqEnvelope)
-        defaultDrum.addDistEnv(defaultDistEnvelope)
+        self.defaultDrum = Drum()
+        self.defaultDrum.addAmplEnv(defaultAmplEnvelope)
+        self.defaultDrum.addFreqEnv(defaultFreqEnvelope)
+        self.defaultDrum.addDistEnv(defaultDistEnvelope)
+        self.defaultDrum.addLayer(defaultLayer)
 
         # here one could load'em all!
-        self.drumInsertAndSelect(defaultDrum)
+        self.drumInsertAndSelect(self.defaultDrum)
         self.drumLoad(0)
 
         #self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
@@ -397,7 +406,7 @@ class MayDrumatizer(QWidget):
 
 #################################### DRUMS ##########################################
 
-    def anyDrums(self, moreThan):
+    def anyDrums(self, moreThan = 0):
         return self.drumModel.rowCount() > moreThan
 
     def currentDrum(self):
@@ -408,6 +417,7 @@ class MayDrumatizer(QWidget):
 
     def drumLoad(self, index = None):
         if index is not None:
+            self.drumList.setCurrentIndex(index)
             drum = self.drumModel.drums[index]
         else:
             drum = self.currentDrum()
@@ -416,17 +426,86 @@ class MayDrumatizer(QWidget):
         self.distEnvModel.clearAndRefill(drum.distEnvs)
         self.layerModel.clearAndRefill(drum.layers)
         self.layerSelect(0)
+        self.layerLoad()
 
     def drumInsertAndSelect(self, drum, position = None):
         self.drumModel.insertNew(drum, position)
+        self.drumModel.layoutChanged.emit()
         index = self.drumModel.indexOf(drum)
         if index.isValid():
             self.drumList.setCurrentIndex(index.row())
 
+    def drumAdd(self, clone = False):
+        title = 'New Drum' if not clone else 'Clone Drum'
+        name, ok = QInputDialog.getText(self, title, 'Enter {} Name:'.format(title), QLineEdit.Normal, '')
+        if ok and name != '':
+            oldDrum = self.defaultDrum if not clone else self.currentDrum()
+            newDrum = deepcopy(oldDrum)
+            newDrum.adjust(name = name, layers = deepcopy(oldDrum.layers))
+            self.drumInsertAndSelect(newDrum, self.drumList.currentIndex() + 1)
+
+    def drumClone(self):
+        self.drumAdd(clone = True)
+
+    def drumDelete(self):
+        if self.anyDrums(moreThan = 1):
+            self.drumModel.drums.remove(self.currentDrum())
+            self.drumModel.layoutChanged.emit()
+
+    def drumEdit(self):
+        print('not implemented yet. why would I? :P') # edit 'type' and 'how awesome this is'
+
+    def drumExport(self, name = None):
+        if name is None:
+            nameSuggestion = self.currentDrum().name.replace(' ', '_').replace('?', '')
+            name, _ = QFileDialog.getSaveFileName(self.parent, 'Export', nameSuggestion, 'Single *.drum(*.drum);;Whole *.drumset(*.drumset)')
+            if name == '':
+                return
+        extension = name.split('.')[-1]
+        fn = open(name, 'w')
+        if extension == 'drum':
+            print(f"Exporting single drum as {name}")
+            json.dump(self.currentDrum(), fn, cls = DrumEncoder)
+        elif extension == 'drumset':
+            print(f"Exporting whole drumset as {name}")
+            json.dump(self.drumModel.drums, fn, cls = DrumEncoder)
+        else:
+            print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
+        fn.close()
+
+    def drumImport(self, name = None):
+        if name is None:
+            name, _  = QFileDialog.getOpenFileName(self.parent, 'Import', '', 'Single *.drum or whole *.drumset files(*.drum, *.drumset)')
+            if name == '':
+                return
+        extension = name.split('.')[-1]
+        fn = open(name, 'r')
+        # TOOD: check whether names exist --> opt to rename or overwrite
+        if extension == 'drum':
+            newDrum = json.load(fn, object_hook = DrumEncoder.decode)
+            while newDrum.name in self.drumModel.nameList():
+                dialog = RenameReplaceDialog(self, name = newDrum.name)
+                if dialog.exec_():
+                    if dialog.mode == RenameReplaceDialog.RENAME:
+                        newDrum.adjust(name = dialog.getName())
+                    elif dialog.mode == RenameReplaceDialog.REPLACE:
+                        self.drumModel.removeFirstDrumOfName(newDrum.name)
+                    else:
+                        print("RenameReplaceDialog returned unknown value for mode")
+                        raise ValueError
+                else:
+                    break
+            self.drumInsertAndSelect(newDrum)
+        elif extension == 'drumset':
+            self.drumModel.clearAndRefill(json.load(fn, object_hook = DrumEncoder.decode))
+            self.drumLoad(0)
+        else:
+            print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
+        fn.close()
+
+
     def drumRender(self):
-        drumatize = Drumatize(self.currentDrum().layers).drumatize()
-        drumatizeL = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
-        drumatizeR = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '(_t-1.e-3)')
+        drumatizeL, drumatizeR = Drumatize(self.currentDrum().layers).drumatize()
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
         self.shaderCreated.emit(sourceShader)
 
@@ -506,10 +585,7 @@ class MayDrumatizer(QWidget):
             self.amplEnvWidget.update()
 
     def layerRenderSolo(self):
-        #drumatize = '_sin(220.*_PROGTIME) * exp(-2.*_ENVTIME)'
-        drumatize = Drumatize([self.currentLayer()]).drumatize()
-        drumatizeL = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
-        drumatizeR = drumatize.replace('_ENVTIME', '_t').replace('_PROGTIME', '(_t-1.e-3)')
+        drumatizeL, drumatizeR = Drumatize([self.currentLayer()]).drumatize()
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
         self.shaderCreated.emit(sourceShader)
 
@@ -532,17 +608,17 @@ class MayDrumatizer(QWidget):
 
     def layerSetVolume(self, value):
         self.currentLayer().adjust(volume = value)
-        self.layerEditorVolumeLabel.setText('{}%'.format(value))
+        self.layerEditorVolumeLabel.setText(f'{value}%')
         self.layerUpdate()
 
     def layerSetDetune(self, value):
         self.currentLayer().adjust(detune = value)
-        self.layerEditorDetuneLabel.setText('{}‰'.format(value))
+        self.layerEditorDetuneLabel.setText(f'{value}‰')
         self.layerUpdate()
 
     def layerSetStereoDelay(self, value):
         self.currentLayer().adjust(stereodelay = value)
-        self.layerEditorStereoDelayLabel.setText('{} ppm'.format(value))
+        self.layerEditorStereoDelayLabel.setText(f'{value}0 ppm' if value != 0 else '0 ppm')
         self.layerUpdate()
 
 

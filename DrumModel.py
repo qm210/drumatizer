@@ -1,5 +1,8 @@
 from PyQt5.QtCore import QAbstractListModel, Qt
+import json
 
+from LayerModel import LayerEncoder
+from EnvelopeModel import EnvelopeEncoder
 
 class Drum:
 
@@ -15,8 +18,24 @@ class Drum:
         self.distEnvs = []
         # '...' menu: enter name, type, option to purge unused envelopes, also the 'drum awesomeness', for the ranking ;)
 
-    def __repr__(self):
+    def __str__(self):
         return self.name # '{} -- {}'.format(self.type.upper(), self.name)
+
+    def adjust(self, **args):
+        if 'name' in args:
+            self.name = args['name']
+        if 'type' in args:
+            self.type = args['type']
+        if 'iLike' in args:
+            self.iLike = args['iLike']
+        if 'layers' in args:
+            self.layers = args['layers']
+        if 'amplEnvs' in args:
+            self.amplEnvs = args['amplEnvs']
+        if 'freqEnvs' in args:
+            self.freqEnvs = args['freqEnvs']
+        if 'distEnvs' in args:
+            self.distEnvs = args['distEnvs']
 
     def addLayer(self, layer):
         self.layers.append(layer)
@@ -38,7 +57,7 @@ class DrumModel(QAbstractListModel):
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.drums[index.row()].__repr__()
+            return self.drums[index.row()].__str__()
 
     def rowCount(self, index = None):
         return len(self.drums)
@@ -95,3 +114,40 @@ class DrumModel(QAbstractListModel):
 
     def nameList(self):
         return [drum.name for drum in self.drums]
+
+    def removeFirstDrumOfName(self, name):
+        if self.nameExists(name):
+            firstFound = [drum for drum in self.drums if drum.name == name][0]
+            self.drums.remove(firstFound)
+            self.layoutChanged.emit()
+
+
+class DrumEncoder(json.JSONEncoder):
+
+    # pylint: disable=method-hidden
+    def default(self, obj):
+        if isinstance(obj, Drum):
+            return {
+                '__drumatizeDrum__': True,
+                'name': obj.name,
+                'type': obj.type,
+                'iLike': obj.iLike,
+                'layers': json.dumps(obj.layers, cls = LayerEncoder),
+                'amplEnvs': json.dumps(obj.amplEnvs, cls = EnvelopeEncoder),
+                'freqEnvs': json.dumps(obj.freqEnvs, cls = EnvelopeEncoder),
+                'distEnvs': json.dumps(obj.distEnvs, cls = EnvelopeEncoder),
+            }
+        else:
+            return super().default(obj)
+
+    @classmethod
+    def decode(self, dict):
+        if '__drumatizeDrum__' in dict:
+            drum = Drum(name = dict['name'], type = dict['type'])
+            drum.iLike = dict['iLike']
+            drum.amplEnvs = json.loads(dict['amplEnvs'], object_hook = EnvelopeEncoder.decode)
+            drum.freqEnvs = json.loads(dict['freqEnvs'], object_hook = EnvelopeEncoder.decode)
+            drum.distEnvs = json.loads(dict['distEnvs'], object_hook = EnvelopeEncoder.decode)
+            drum.layers = json.loads(dict['layers'], object_hook=LayerEncoder.decode)
+            return drum
+        return dict

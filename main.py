@@ -36,9 +36,19 @@ class MainWindow(QWidget):
         if event.key() == Qt.Key_Escape:
             self.close()
             #QApplication.quit()
-        if event.key() == Qt.Key_Return and (event.modifiers() & Qt.ControlModifier):
-            self.renderWidget.pasteClipboard()
-            self.renderWidget.renderShaderAndPlay()
+
+        # CTRL pressed
+        if event.modifiers() & Qt.ControlModifier:
+
+            if event.key() == Qt.Key_Return:
+                self.renderWidget.pasteClipboard()
+                self.renderWidget.renderShaderAndPlay()
+
+            if event.key() == Qt.Key_S:
+                self.autosave()
+
+            if event.key() == Qt.Key_L:
+                self.autoload()
 
     def initState(self):
         self.autosaveInterval = 30e3 # every 30 sec
@@ -58,10 +68,16 @@ class MainWindow(QWidget):
         self.setLayout(self.mainSplit)
 
     def autoload(self):
-        print('mock autload...')
+        try:
+            self.drumWidget.drumImport(name = 'auto.drumset')
+        except FileNotFoundError:
+            self.drumWidget.initData()
 
     def autosave(self):
-        print('mock autosave...')
+        try:
+            self.drumWidget.drumExport(name = 'auto.drumset')
+        except Exception as ex:
+            print('Autosave failed...', ex)
 
     def sendShaderToRenderer(self, shaderSource):
         self.renderWidget.paste(shaderSource)

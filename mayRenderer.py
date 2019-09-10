@@ -57,7 +57,8 @@ class MayRenderer(QWidget):
         self.codeEditor = QPlainTextEdit(self)
         self.codeEditor.setLineWrapMode(QPlainTextEdit.WidgetWidth)
         #self.codeEditor.setCenterOnScroll(True)
-        #self.codeEditor.textChanged.connect(self.formatEditor) # this gives a recursion problem, but how to filter e.g. tabs?
+        #self.codeEditor.textChanged.formatEditor()) # this gives a recursion problem, but how to filter e.g. tabs?
+        self.codeEditor.cursorPositionChanged.connect(self.updatePosLabel)
         self.codeEditor.setTabStopWidth(14)
         self.watchFileCheckBox = QCheckBox('watch file:', self)
         self.watchFileCheckBox.stateChanged.connect(self.toggleWatchFile)
@@ -104,7 +105,12 @@ class MayRenderer(QWidget):
         self.codeWatchFileBar.addWidget(self.watchFileCheckBox)
         self.codeWatchFileBar.addWidget(self.watchFileNameBox)
         self.codeWatchFileBar.addWidget(self.buttonWatchFile)
-        self.codeLayout.addWidget(QLabel('GLSL code'))
+        self.codeHeader = QHBoxLayout()
+        self.codePosLabel = QLabel('(0,0)')
+        self.codeHeader.addWidget(QLabel('GLSL code'))
+        self.codeHeader.addStretch()
+        self.codeHeader.addWidget(self.codePosLabel)
+        self.codeLayout.addLayout(self.codeHeader)
         self.codeLayout.addLayout(self.codeButtonBar)
         self.codeLayout.addWidget(self.codeEditor)
         self.codeLayout.addLayout(self.codeWatchFileBar)
@@ -155,6 +161,10 @@ class MayRenderer(QWidget):
     def clearEditor(self):
         self.codeEditor.setPlainText('')
         self.codeEditor.setFocus()
+
+    def updatePosLabel(self):
+        cursor = self.codeEditor.textCursor()
+        self.codePosLabel.setText(f'({cursor.blockNumber()},{cursor.positionInBlock()})')
 
 #    def formatEditor(self):
 #        plainText = self.codeEditor.toPlainText().replace('\t', 4*' ')

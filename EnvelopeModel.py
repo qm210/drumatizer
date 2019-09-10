@@ -2,6 +2,7 @@ from PyQt5.QtCore import QAbstractListModel, Qt
 from copy import deepcopy
 from math import pi
 from random import uniform
+import json
 
 
 class Envelope:
@@ -12,7 +13,7 @@ class Envelope:
         self.points = points or []
         self.parameters = parameters or {} # TODO: include 'Try Exp. Fit' (with scipy.optimize) here
 
-    def __repr__(self):
+    def __str__(self):
         return self.name
 
     def adjust(self, name = None, points = None, pointNumber = None, parameters = None):
@@ -68,12 +69,22 @@ class Envelope:
 
 class EnvelopePoint:
 
-    def __init__(self, time = 0, value = 0, fixedTime = False, fixedValue = False, name = None):
+    def __init__(self, time = 0, value = 0, fixedTime = False, fixedValue = False, name = None, decodePoint = None):
         self.time = time
         self.value = value
         self.fixedTime = fixedTime or (time < 1e-3)
         self.fixedValue = fixedValue
         self.name = name
+        if decodePoint is not None:
+            try:
+                self.time = decodePoint['time']
+                self.value = decodePoint['value']
+                self.fixedTime = decodePoint['fixedTime']
+                self.fixedvalue = decodePoint['fixedValue']
+                self.name = decodePoint['name']
+            except:
+                print("EnvelopePoint(decodePoint = ...) was passed something incompatible..!")
+                raise
 
     def dragTo(self, time = None, value = None):
         if time and not self.fixedTime:
@@ -97,7 +108,7 @@ class EnvelopeModel(QAbstractListModel):
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
-            return self.envelopes[index.row()].__repr__()
+            return self.envelopes[index.row()].__str__()
 
     def rowCount(self, index = None):
         return len(self.envelopes)
@@ -186,3 +197,41 @@ defaultDistEnvelope = Envelope(
         EnvelopePoint(0.80, 0.5, name = 'distAmt2'),
         EnvelopePoint(1.50, 0.2, name = 'distAmt3')
     ])
+
+
+class EnvelopeEncoder(json.JSONEncoder):
+
+    # pylint: disable=method-hidden
+    def default(self, obj):
+        if isinstance(obj, Envelope):
+            return {
+                '__drumatizeEnvelope__': True,
+                'name': obj.name,
+                'type': obj.type,
+                'points': json.dumps(obj.points, default = (lambda point: point.__dict__)),
+                'parameters': obj.parameters
+            }
+        if isinstance(obj, list) and isinstance(obj[0], Envelope):
+            print("this is an evenelope list! deal with it.")
+            quit()
+        else:
+            print("something else happened")
+            return super().default(obj)
+
+    @classmethod
+    def decode(self, dict):
+        if '__drumatizeEnvelope__' in dict:
+            points = [EnvelopePoint(decodePoint = p) for p in json.loads(dict['points'])]
+            return Envelope(
+                name = dict['name'],
+                type = dict['type'],
+                points = points,
+                parameters = dict['parameters']
+            )
+        else:
+            return dict
+
+    @classmethod
+    def decodeList(self, list):
+        print('decodeList', list)
+        return [self.decode(env) for env in list if '__drumatizeEnvelope__' in env]
