@@ -270,7 +270,6 @@ void main()
         SPB = 60 / float(self.renderBpmBox.value())
         uniforms.update({'SPB': SPB})
 
-        print(shaderSource)
         print(self.renderLengthBox.value())
 
         try:
@@ -283,7 +282,6 @@ void main()
 
         glwidget.show()
         self.log = glwidget.newShader(shaderSource)
-        print(self.log)
         self.music = glwidget.music
         glwidget.hide()
         glwidget.destroy()

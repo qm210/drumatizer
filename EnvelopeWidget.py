@@ -11,7 +11,7 @@ import mayStyle
 
 class EnvelopeWidget(QtWidgets.QWidget):
 
-    # pointsChanged = pyqtSignal()
+    pointsChanged = pyqtSignal()
 
     def __init__(self, parent, points = None):
         super().__init__()
@@ -216,8 +216,8 @@ class EnvelopeWidget(QtWidgets.QWidget):
             if any(point.time >= nextPoint.time for point, nextPoint in zip(self.points, self.points[1:])) \
                 or self.isOutsideOfWidget(*self.draggingPoint.values()):
                     self.draggingPoint.dragTo(self.draggingPointOriginalTime, self.draggingPointOriginalValue)
-#            else:
-#                self.pointsChanged.emit()
+            else:
+                self.pointsChanged.emit()
 
 
     def isOutsideOfWidget(self, time, value):

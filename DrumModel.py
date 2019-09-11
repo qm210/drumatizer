@@ -128,7 +128,7 @@ class DrumEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Drum):
             return {
-                '__drumatizeDrum__': True,
+                '__drumatizeDrum__': hash(obj),
                 'name': obj.name,
                 'type': obj.type,
                 'iLike': obj.iLike,

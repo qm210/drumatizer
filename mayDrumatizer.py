@@ -8,6 +8,7 @@
 from PyQt5.QtWidgets import * # pylint: disable=unused-import
 from PyQt5.QtCore import Qt, pyqtSignal, QItemSelectionModel, QFile, QTextStream
 from copy import deepcopy
+from functools import partial
 import json
 
 from DrumModel import *
@@ -26,7 +27,7 @@ class MayDrumatizer(QWidget):
         super().__init__()
         self.parent = parent
 
-        self.maxTime = 2
+        self.maxTime = {'amplitude': 1.2, 'frequency': 1.2, 'distortion': 1.2}
         self.minValue = {'amplitude': 0, 'frequency':    20, 'distortion': 0}
         self.maxValue = {'amplitude': 1, 'frequency': 12000, 'distortion': 2}
 
@@ -85,7 +86,7 @@ class MayDrumatizer(QWidget):
         self.layerEditorVolumeSlider.setRange(0, 200)
         self.layerEditorVolumeLabel = QLabel('100%')
         self.layerEditorDetuneSlider = QSlider(Qt.Horizontal)
-        self.layerEditorDetuneSlider.setRange(0, 200)
+        self.layerEditorDetuneSlider.setRange(0, 1000)
         self.layerEditorDetuneSlider.setValue(0)
         self.layerEditorDetuneLabel = QLabel('0‰')
         self.layerEditorStereoDelaySlider = QSlider(Qt.Horizontal)
@@ -112,7 +113,8 @@ class MayDrumatizer(QWidget):
         self.layerEditorLayout.addWidget(QLabel('Stereo Delay:'), 6, 0)
         self.layerEditorLayout.addWidget(self.layerEditorStereoDelaySlider, 6, 1)
         self.layerEditorLayout.addWidget(self.layerEditorStereoDelayLabel, 6, 2)
-        self.layerEditorLayout.setVerticalSpacing(8)
+        self.layerEditorLayout.setVerticalSpacing(7)
+        # TODO: additional "phase mod by Layer" function, but THERE IS NO SPACE..!
 
         self.layerMenu = QVBoxLayout()
         self.layerMenu.addStretch()
@@ -142,7 +144,7 @@ class MayDrumatizer(QWidget):
         self.amplEnvList.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.amplEnvMenu = QVBoxLayout()
         self.amplEnvWidget = EnvelopeWidget(self)
-        self.amplEnvWidget.setDimensions(maxTime = self.maxTime, minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
+        self.amplEnvWidget.setDimensions(maxTime = self.maxTime['amplitude'], minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
 
         self.amplEnvMenuBtnAdd = QPushButton('+')
         self.amplEnvMenuBtnDel = QPushButton('–')
@@ -178,7 +180,7 @@ class MayDrumatizer(QWidget):
         self.freqEnvList.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.freqEnvMenu = QVBoxLayout()
         self.freqEnvWidget = EnvelopeWidget(self)
-        self.freqEnvWidget.setDimensions(maxTime = self.maxTime, minValue = self.minValue['frequency'], maxValue = self.maxValue['frequency'], logValue = True)
+        self.freqEnvWidget.setDimensions(maxTime = self.maxTime['frequency'], minValue = self.minValue['frequency'], maxValue = self.maxValue['frequency'], logValue = True)
 
         self.freqEnvMenuBtnAdd = QPushButton('+')
         self.freqEnvMenuBtnDel = QPushButton('–')
@@ -208,7 +210,7 @@ class MayDrumatizer(QWidget):
         self.distEnvList.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.distEnvMenu = QVBoxLayout()
         self.distEnvWidget = EnvelopeWidget(self)
-        self.distEnvWidget.setDimensions(maxTime = self.maxTime, minValue = self.minValue['distortion'], maxValue = self.maxValue['distortion'])
+        self.distEnvWidget.setDimensions(maxTime = self.maxTime['distortion'], minValue = self.minValue['distortion'], maxValue = self.maxValue['distortion'])
         # todo: at '...', choose how many points there should be (for dist and amp arbitrarily, for freq: 2 at most!)
 
         self.distEnvMenuBtnAdd = QPushButton('+')
@@ -257,7 +259,6 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit.addWidget(self.distMenuEdit_FMSource)
         self.distMenuEdit.addWidget(self.distMenuEdit_LofiBits)
         self.distMenuEdit.addWidget(self.distMenuEdit_NA)
-        #todo: change THIS parameter over time, each, esp. FM and LoFi!
 
         self.distMenuLayout = QHBoxLayout()
         self.distMenuLayout.addWidget(QLabel('Distortion Envelopes'), 5)
@@ -305,22 +306,31 @@ class MayDrumatizer(QWidget):
         self.layerEditorDetuneSlider.valueChanged.connect(self.layerSetDetune)
         self.layerEditorStereoDelaySlider.valueChanged.connect(self.layerSetStereoDelay)
         self.layerMenuMuteBox.stateChanged.connect(self.layerSetMute)
+
         self.amplEnvMenuBtnAdd.pressed.connect(self.amplEnvAdd)
         self.amplEnvMenuBtnDel.pressed.connect(self.amplEnvDelete)
         self.amplEnvMenuBtnRnd.pressed.connect(self.amplEnvRandomize)
         self.amplEnvMenuBtnEdit.pressed.connect(self.amplEnvEditSettings)
         self.amplEnvMenu_TryExpFitChkBox.stateChanged.connect(self.amplEnvSetTryExpFit)
+
         self.freqEnvMenuBtnAdd.pressed.connect(self.freqEnvAdd)
         self.freqEnvMenuBtnDel.pressed.connect(self.freqEnvDelete)
         self.freqEnvMenuBtnRnd.pressed.connect(self.freqEnvRandomize)
         self.freqEnvMenuBtnEdit.pressed.connect(self.freqEnvEditSettings)
+
         self.distEnvMenuBtnAdd.pressed.connect(self.distEnvAdd)
         self.distEnvMenuBtnDel.pressed.connect(self.distEnvDelete)
         self.distEnvMenuBtnRnd.pressed.connect(self.distEnvRandomize)
         self.distEnvMenuBtnEdit.pressed.connect(self.distEnvEditSettings)
         self.distMenuEdit_OverdriveMaximum.valueChanged.connect(self.adjustDistEnvWidgetMaximum)
-        self.distMenuType.currentTextChanged.connect(self.adjustDistMenuEdit)
-        # TODO: missing: the other distortion features
+        self.distMenuEdit_WaveshapeParts.valueChanged.connect(partial(self.updateDistParams, choice='Waveshape'))
+        self.distMenuEdit_FMSource.currentIndexChanged.connect(partial(self.updateDistParams, choice='FM')) # TODO: treat PM differently..!!
+        self.distMenuEdit_LofiBits.valueChanged.connect(partial(self.updateDistParams, choice='Lo-Fi'))
+        self.distMenuType.currentTextChanged.connect(self.updateDistParams)
+
+        self.amplEnvWidget.pointsChanged.connect(self.amplEnvUpdateCurrent)
+        self.freqEnvWidget.pointsChanged.connect(self.freqEnvUpdateCurrent)
+        self.distEnvWidget.pointsChanged.connect(self.distEnvUpdateCurrent)
 
     def initModelView(self):
         self.drumModel = DrumModel()
@@ -335,17 +345,20 @@ class MayDrumatizer(QWidget):
         self.amplEnvModel = EnvelopeModel()
         self.amplEnvList.setModel(self.amplEnvModel)
         self.amplEnvList.selectionModel().currentChanged.connect(self.amplEnvLoad)
-        self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdate) # TODO: check one day: do we need these?
+        self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdateWidget) # TODO: check one day: do we need these?
+        #self.amplEnvModel.dataChanged.connect(self.amplEnvUpdateWidget)
 
         self.freqEnvModel = EnvelopeModel()
         self.freqEnvList.setModel(self.freqEnvModel)
         self.freqEnvList.selectionModel().currentChanged.connect(self.freqEnvLoad)
-        self.freqEnvModel.layoutChanged.connect(self.freqEnvUpdate)
+        self.freqEnvModel.layoutChanged.connect(self.freqEnvUpdateWidget)
+        #self.freqEnvModel.dataChanged.connect(self.freqEnvUpdateWidget)
 
         self.distEnvModel = EnvelopeModel()
         self.distEnvList.setModel(self.distEnvModel)
         self.distEnvList.selectionModel().currentChanged.connect(self.distEnvLoad)
-        self.distEnvModel.layoutChanged.connect(self.distEnvUpdate)
+        self.distEnvModel.layoutChanged.connect(self.distEnvUpdateWidget)
+        #self.distEnvModel.dataChanged.connect(self.distEnvUpdateWidget)
 
         self.layerChooseAmplEnvList.setModel(self.amplEnvModel)
         self.layerChooseFreqEnvList.setModel(self.freqEnvModel)
@@ -355,37 +368,48 @@ class MayDrumatizer(QWidget):
 
 
     def initData(self):
-        defaultLayer = Layer(amplEnv = defaultAmplEnvelope, freqEnv = defaultFreqEnvelope, distEnv = defaultDistEnvelope)
-
         self.defaultDrum = Drum()
         self.defaultDrum.addAmplEnv(defaultAmplEnvelope)
         self.defaultDrum.addFreqEnv(defaultFreqEnvelope)
         self.defaultDrum.addDistEnv(defaultDistEnvelope)
-        self.defaultDrum.addLayer(defaultLayer)
+        self.defaultDrum.addLayer(Layer(amplEnv = defaultAmplEnvelope, freqEnv = defaultFreqEnvelope, distEnv = defaultDistEnvelope))
 
         # here one could load'em all!
         self.drumInsertAndSelect(self.defaultDrum)
         self.drumLoad(0)
+        self.ensureLayerEnvelopeMapping()
 
         #self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
         #    self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
         #    self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
 
-    def adjustDistMenuEdit(self, choice):
+    def updateDistParams(self, choice = None):
+        if choice is None:
+            choice = self.currentLayer().distType
+
+        print("choice is", choice)
+
         if choice == 'Overdrive':
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_OverdriveMaximum)
             self.adjustDistEnvWidgetMaximum(self.distMenuEdit_OverdriveMaximum.value())
+            distParam = None
         elif choice == 'Waveshape':
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_WaveshapeParts)
             self.adjustDistEnvWidgetMaximum(2)
+            distParam = self.distMenuEdit_WaveshapeParts.value()
         elif choice == 'FM':
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_FMSource)
             self.adjustDistEnvWidgetMaximum(2)
+            distParam = self.distMenuEdit_FMSource.currentData()
         elif choice == 'Lo-Fi':
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_LofiBits)
             self.adjustDistEnvWidgetMaximum(2)
+            distParam = self.distMenuEdit_LofiBits.value()
         else:
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
+            distParam = None
+
+        self.currentLayer().adjust(distType = choice, distParam = distParam)
 
     def adjustDistEnvWidgetMaximum(self, value):
         self.maxValue['distortion'] = value
@@ -458,16 +482,14 @@ class MayDrumatizer(QWidget):
     def drumExport(self, name = None):
         if name is None:
             nameSuggestion = self.currentDrum().name.replace(' ', '_').replace('?', '')
-            name, _ = QFileDialog.getSaveFileName(self.parent, 'Export', nameSuggestion, 'Single *.drum(*.drum);;Whole *.drumset(*.drumset)')
+            name, _ = QFileDialog.getSaveFileName(self.parent, 'Export', nameSuggestion, 'Single *.drum or whole *.drumset files(*.drum, *.drumset)')
             if name == '':
                 return
         extension = name.split('.')[-1]
         fn = open(name, 'w')
         if extension == 'drum':
-            print(f"Exporting single drum as {name}")
             json.dump(self.currentDrum(), fn, cls = DrumEncoder)
         elif extension == 'drumset':
-            print(f"Exporting whole drumset as {name}")
             json.dump(self.drumModel.drums, fn, cls = DrumEncoder)
         else:
             print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
@@ -502,6 +524,22 @@ class MayDrumatizer(QWidget):
         else:
             print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
         fn.close()
+        self.ensureLayerEnvelopeMapping()
+
+    def ensureLayerEnvelopeMapping(self):
+        for layer in self.layerModel.layers:
+            for env in self.amplEnvModel.envelopes:
+                if env._hash == layer.amplEnv._hash:
+                    layer.adjust(amplEnv = env)
+                    break
+            for e in self.freqEnvModel.envelopes:
+                if env._hash == layer.freqEnv._hash:
+                    layer.adjust(freqEnv = env)
+                    break
+            for e in self.distEnvModel.envelopes:
+                if env._hash == layer.distEnv._hash:
+                    layer.adjust(distEnv = env)
+                    break
 
 
     def drumRender(self):
@@ -581,10 +619,12 @@ class MayDrumatizer(QWidget):
     def layerRandomize(self):
         if self.anyAmplEnv():
             env = self.currentAmplEnv()
-            env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
+            env.randomize(self.maxTime[env.type], self.minValue[env.type], self.maxValue[env.type])
             self.amplEnvWidget.update()
 
     def layerRenderSolo(self):
+        print(self.currentFreqEnv().points)
+        print(self.freqEnvWidget.points)
         drumatizeL, drumatizeR = Drumatize([self.currentLayer()]).drumatize()
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR)
         self.shaderCreated.emit(sourceShader)
@@ -603,7 +643,7 @@ class MayDrumatizer(QWidget):
         self.layerUpdate()
 
     def layerSetMute(self, state):
-        self.currentLayer().adjust(mute = state)
+        self.currentLayer().adjust(mute = (state == Qt.Checked))
         self.layerUpdate()
 
     def layerSetVolume(self, value):
@@ -633,7 +673,10 @@ class MayDrumatizer(QWidget):
         except IndexError:
             return None
 
-    def amplEnvUpdate(self):
+    def amplEnvUpdateCurrent(self):
+        self.currentAmplEnv().adjust(points = self.amplEnvWidget.points)
+
+    def amplEnvUpdateWidget(self):
         self.amplEnvWidget.loadEnvelope(self.currentAmplEnv())
 
     def amplEnvLoad(self, current, previous = None):
@@ -675,7 +718,7 @@ class MayDrumatizer(QWidget):
                 self.amplEnvInsertAndSelect(self.currentAmplEnv(), self.amplEnvList.currentIndex().row() + 1)
             if not name:
                 name = '({} env {})'.format(self.currentAmplEnv().type, self.amplEnvList.currentIndex().row() + 1)
-            if self.amplEnvModel.nameExists(name):
+            if self.amplEnvModel.nameExists(name) and dialog.mode != SettingsDialog.EDIT:
                 name += '++'
             if pointNumber > 1:
                 self.currentAmplEnv().adjust(name = name, pointNumber = pointNumber)
@@ -684,6 +727,7 @@ class MayDrumatizer(QWidget):
             if assign:
                 self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
 
+            self.amplEnvUpdateWidget()
             self.amplEnvModel.dataChanged.emit(self.amplEnvList.currentIndex(), self.amplEnvList.currentIndex())
 
 
@@ -698,9 +742,8 @@ class MayDrumatizer(QWidget):
     def amplEnvRandomize(self):
         if self.anyAmplEnv():
             env = self.currentAmplEnv()
-            env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
+            env.randomize(self.maxTime[env.type], self.minValue[env.type], self.maxValue[env.type])
             self.amplEnvWidget.update()
-
 
     def amplEnvSetTryExpFit(self, state):
         self.currentAmplEnv().adjustParameter('tryExpFit', state == Qt.Checked)
@@ -717,7 +760,10 @@ class MayDrumatizer(QWidget):
         except IndexError:
             return None
 
-    def freqEnvUpdate(self):
+    def freqEnvUpdateCurrent(self):
+        self.currentFreqEnv().adjust(points = self.freqEnvWidget.points)
+
+    def freqEnvUpdateWidget(self):
         self.freqEnvWidget.loadEnvelope(self.currentFreqEnv())
 
     def freqEnvLoad(self, current, previous = None):
@@ -758,7 +804,7 @@ class MayDrumatizer(QWidget):
                 self.freqEnvInsertAndSelect(self.currentFreqEnv(), self.freqEnvList.currentIndex().row() + 1)
             if not name:
                 name = '({} env {})'.format(self.currentFreqEnv().type, self.freqEnvList.currentIndex().row() + 1)
-            if self.freqEnvModel.nameExists(name):
+            if self.freqEnvModel.nameExists(name) and dialog.mode != SettingsDialog.EDIT:
                 name += '++'
             if pointNumber > 1:
                 self.currentFreqEnv().adjust(name = name, pointNumber = pointNumber)
@@ -767,6 +813,7 @@ class MayDrumatizer(QWidget):
             if assign:
                 self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
 
+            self.freqEnvUpdateWidget()
             self.freqEnvModel.dataChanged.emit(self.freqEnvList.currentIndex(), self.freqEnvList.currentIndex())
 
 
@@ -781,7 +828,7 @@ class MayDrumatizer(QWidget):
     def freqEnvRandomize(self):
         if self.anyFreqEnv():
             env = self.currentFreqEnv()
-            env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
+            env.randomize(self.maxTime[env.type], self.minValue[env.type], self.maxValue[env.type])
             self.freqEnvWidget.update()
 
 
@@ -796,7 +843,10 @@ class MayDrumatizer(QWidget):
         except IndexError:
             return None
 
-    def distEnvUpdate(self):
+    def distEnvUpdateCurrent(self):
+        self.currentDistEnv().adjust(points = self.distEnvWidget.points)
+
+    def distEnvUpdateWidget(self):
         self.distEnvWidget.loadEnvelope(self.currentDistEnv())
 
     def distEnvLoad(self, current, previous = None):
@@ -837,7 +887,7 @@ class MayDrumatizer(QWidget):
                 self.distEnvInsertAndSelect(self.currentDistEnv(), self.distEnvList.currentIndex().row() + 1)
             if not name:
                 name = '({} env {})'.format(self.currentDistEnv().type, self.distEnvList.currentIndex().row() + 1)
-            if self.distEnvModel.nameExists(name):
+            if self.distEnvModel.nameExists(name) and dialog.mode != SettingsDialog.EDIT:
                 name += '++'
             if pointNumber > 1:
                 self.currentDistEnv().adjust(name = name, pointNumber = pointNumber)
@@ -846,6 +896,7 @@ class MayDrumatizer(QWidget):
             if assign:
                 self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
 
+            self.distEnvUpdateWidget()
             self.distEnvModel.dataChanged.emit(self.distEnvList.currentIndex(), self.distEnvList.currentIndex())
 
 

@@ -7,11 +7,12 @@ import json
 
 class Envelope:
 
-    def __init__(self, name = None, type = None, points = None, parameters = None):
+    def __init__(self, name = None, type = None, points = None, parameters = None, _hash = None):
         self.name = name or 'Matzes Liebling'
         self.type = type
         self.points = points or []
         self.parameters = parameters or {} # TODO: include 'Try Exp. Fit' (with scipy.optimize) here
+        self._hash = _hash or hash(self)
 
     def __str__(self):
         return self.name
@@ -31,10 +32,10 @@ class Envelope:
                         self.points = self.points[0:pointNumber-1] + [self.points[-1]]
                 elif pointNumber > oldNumber:
                     if oldNumber == 2 and self.type == 'amplitude':
-                        self.points.append(EnvelopePoint(time = pi/2, value = 0))
+                        self.points.append(EnvelopePoint(time = pi/4, value = 0))
                         oldNumber += 1
                     elif oldNumber == 1:
-                        self.points.append(EnvelopePoint(time = pi/2, value = self.points[0].value))
+                        self.points.append(EnvelopePoint(time = pi/4, value = self.points[0].value))
                         oldNumber += 1
                     # my super-awesome golden ratio algorithm C=
                     for _ in range(pointNumber - oldNumber):
@@ -87,9 +88,9 @@ class EnvelopePoint:
                 raise
 
     def dragTo(self, time = None, value = None):
-        if time and not self.fixedTime:
+        if time is not None and not self.fixedTime:
             self.time = time
-        if value and not self.fixedValue:
+        if value is not None and not self.fixedValue:
             self.value = value
 
     def values(self):
@@ -175,7 +176,7 @@ defaultAmplEnvelope = Envelope(
         EnvelopePoint(0.00, 0.0, fixedTime = True, fixedValue = True),
         EnvelopePoint(0.05, 1.0, name = 'attack', fixedValue = True),
         EnvelopePoint(0.50, 0.5, name = 'decay'),
-        EnvelopePoint(1.50, 0.0, name = 'sustain')
+        EnvelopePoint(1.2, 0.0, name = 'sustain')
     ],
     parameters = {'tryExpFit': False})
 
@@ -193,9 +194,9 @@ defaultDistEnvelope = Envelope(
     type = 'distortion',
     points = [
         EnvelopePoint(0.00, 1.0, name = 'distAmt0', fixedTime = True),
-        EnvelopePoint(0.20, 1.5, name = 'distAmt1'),
+        EnvelopePoint(0.20, 1.15, name = 'distAmt1'),
         EnvelopePoint(0.80, 0.5, name = 'distAmt2'),
-        EnvelopePoint(1.50, 0.2, name = 'distAmt3')
+        EnvelopePoint(1.20, 0.2, name = 'distAmt3')
     ])
 
 
@@ -205,7 +206,7 @@ class EnvelopeEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Envelope):
             return {
-                '__drumatizeEnvelope__': True,
+                '__drumatizeEnvelope__': obj._hash,
                 'name': obj.name,
                 'type': obj.type,
                 'points': json.dumps(obj.points, default = (lambda point: point.__dict__)),
@@ -226,7 +227,8 @@ class EnvelopeEncoder(json.JSONEncoder):
                 name = dict['name'],
                 type = dict['type'],
                 points = points,
-                parameters = dict['parameters']
+                parameters = dict['parameters'],
+                _hash = dict['__drumatizeEnvelope__'],
             )
         else:
             return dict

@@ -2,6 +2,7 @@ from DrumModel import *
 from LayerModel import *
 from EnvelopeModel import *
 
+import numpy as np
 from scipy.optimize import curve_fit
 
 
@@ -22,68 +23,82 @@ class Drumatize:
 
     def drumatize(self):
 
-        groupedResults = {}
+        groupedResultsWithoutAmplEnv = {}
 
         amplEnvSet = set(layer.amplEnv for layer in self.layers)
         glslAmplEnvs = {}
         for amplEnv in amplEnvSet:
-            glslAmplEnv = self.linearEnvelope(amplEnv)
-            glslAmplEnvs[amplEnv] = glslAmplEnv
-            groupedResults[amplEnv] = []
+            if 'tryExpFit' in amplEnv.parameters and amplEnv.parameters['tryExpFit']:
+                glslAmplEnvs[amplEnv] = self.expDecayFit(amplEnv)
+            else:
+                glslAmplEnvs[amplEnv] = self.linearEnvelope(amplEnv)
+
+            groupedResultsWithoutAmplEnv[amplEnv] = []
 
         for layer in self.layers:
+            print("layer!", layer.name, layer.mute)
 
             freqEnv = layer.freqEnv
             freqPointNumber = freqEnv.pointNumber()
 
             if freqPointNumber == 1:
-                glslFreq = GLfloat(freqEnv.points[0].value)
+                glslPhase = '{}*_PROGTIME'.format(GLfloat(freqEnv.points[0].value))
             elif freqPointNumber == 2:
                 args = (freqEnv.points[1].time, freqEnv.points[0].value, freqEnv.points[1].value)
-                glslFreq = 'drop_phase(_PROGTIME,{},{},{})'.format(*(GLfloat(arg) for arg in args))
+                glslPhase = 'drop_phase(_PROGTIME,{},{},{})'.format(*(GLfloat(arg) for arg in args))
             elif freqPointNumber == 3:
                 args = (freqEnv.points[1].time, freqEnv.points[2].time, freqEnv.points[0].value, freqEnv.points[1].value, freqEnv.points[2].value)
-                glslFreq = 'drop2_phase(_PROGTIME,{},{},{},{},{})'.format(*(GLfloat(arg) for arg in args))
+                glslPhase = 'drop2_phase(_PROGTIME,{},{},{},{},{})'.format(*(GLfloat(arg) for arg in args))
             else:
                 print('frequency envelope {} is invalid. Exiting...'.format(freqEnv.name))
                 raise ValueError
 
-            glslPhase = GLfloat(0)
-            # glslDistEnv = self.layer.distEnv
+            glslPhaseShift = GLfloat(0)
             glslVolume = GLfloat(layer.volume * layer.unitVolume)
             glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
+            layerClean = self.oscFunction(layer.type, glslPhase, glslPhaseShift, glslDetuneFactor, GLfloat(freqEnv.points[0].value))
 
-            layerResult = f'{glslVolume}*{self.freqFunction(layer.type, glslFreq, glslPhase, glslDetuneFactor)}'
-            groupedResults[layer.amplEnv].append(layerResult)
+            if layer.distOff:
+                layerDistorted = layerClean
+            else:
+                glslDistEnv = self.linearEnvelope(layer.distEnv)
+                layerDistorted = self.applyDistortion(layerClean, layer.distType, layer.distParam, glslDistEnv)
+
+            if not layer.mute:
+                groupedResultsWithoutAmplEnv[layer.amplEnv].append(f'{glslVolume}*{layerDistorted}')
 
         groupResults = []
         for amplEnv in amplEnvSet:
-            groupResults.append('{}*({})'.format(glslAmplEnvs[amplEnv], '+'.join(groupedResults[amplEnv])))
+            groupedResults = groupedResultsWithoutAmplEnv[layer.amplEnv]
+            if groupedResults:
+                groupResults.append('{}*({})'.format(glslAmplEnvs[amplEnv], '+'.join(groupedResultsWithoutAmplEnv[amplEnv])))
+            else:
+                groupResults.append('0.')
 
         result = '+'.join(groupResults)
 
-        stereodelay = GLfloat(layer.stereodelay * layer.unitStereoDelay)
-        print("STEREODELAY IS", stereodelay)
-
+        stereodelay = GLfloat(round(layer.stereodelay * layer.unitStereoDelay, 5))
         _PROGTIME_R = f'(_t-{stereodelay})' if layer.stereodelay != 0 else '_t'
-        resultL = result.replace('_ENVTIME', '_t').replace('_PROGTIME', '_t')
-        resultR = result.replace('_ENVTIME', '_t').replace('_PROGTIME', _PROGTIME_R)
+
+        result = result.replace('_ENVTIME', '_t')
+        resultL = result.replace('_PROGTIME', '_t')
+        resultR = result.replace('_PROGTIME', _PROGTIME_R)
 
         return resultL, resultR
 
-        # freqFunction = self.freqFunction(self.layer.type, freq, 0)
+        # freqFunction = self.oscFunction(self.layer.type, freq, 0)
         # TODO: add option to add another envelope as phase.. heheh... hehehehe... --> nice reverb emulation and FM
 
-    def freqFunction(self, indicator, freq, phase, detuneFactor):
-        noPhase = (phase == GLfloat(0))
+    def oscFunction(self, indicator, phase, phaseShift, detuneFactor, freqForPerlinNoise):
+        noPhaseShift = (phaseShift == GLfloat(0))
         noDetune = (detuneFactor == GLfloat(1))
 
         if indicator == 'SIN':
-            if noPhase:
-                phaseArgs = f'{freq}*_PROGTIME'
+            if noPhaseShift:
+                phaseArgs = phase
                 func = '_sin'
             else:
-                phaseArgs = f'{freq}*_PROGTIME,{phase}'
+                phaseArgs = f'{phase},{phaseShift}'
                 func = '_sin_'
 
             if noDetune:
@@ -92,13 +107,14 @@ class Drumatize:
                 return f'(.5*_sin({phaseArgs})+.5*_sin({detuneFactor}*{phaseArgs}))'
 
         elif indicator == 'PRLNS':
+            # how could I implement a change in freqForPerlinNoise - TODO: think.
             if noDetune:
-                return f'lpnoise(_PROGTIME,{freq})'
+                return f'lpnoise(_PROGTIME,{freqForPerlinNoise})'
             else:
-                return f'(.5*lpnoise(_PROGTIME,{freq})+.5*lpnoise(_PROGTIME,{detuneFactor}*{freq}))'
+                return f'(.5*lpnoise(_PROGTIME,{freqForPerlinNoise})+.5*lpnoise(_PROGTIME,{detuneFactor}*{freqForPerlinNoise}))'
 
         else:
-            phaseArgs = f'{freq}*_PROGTIME' + ('' if noPhase else f'+{phase}')
+            phaseArgs = phase if noPhaseShift else f'{phase}+{phaseShift}'
 
             if indicator == 'SAW':
                 func = '_saw'
@@ -109,7 +125,7 @@ class Drumatize:
             elif indicator == 'WHTNS':
                 func = 'pseudorandom'
             else:
-                print(f'freqFunction({indicator},...) is not defined. Exiting...')
+                print(f'oscFunction({indicator},...) is not defined. Exiting...')
                 raise ValueError
 
             if noDetune:
@@ -117,6 +133,20 @@ class Drumatize:
             else:
                 return f'(.5*{func}({phaseArgs})+.5*{func}({detuneFactor}*{phaseArgs}))'
 
+    def applyDistortion(self, layerClean, distType, distParam, distEnv):
+        if distType == 'Overdrive':
+            return f'clamp({distEnv}*{layerClean},-1.,1.)'
+        elif distType == 'Waveshape':
+            return f'sinshape({layerClean}, {distEnv}, {GLfloat(distParam)})'
+        elif distType == 'Lo-Fi':
+            distEnv = f'({GLfloat(distParam)}*{distEnv})'
+            return layerClean.replace('_PROGTIME',f'floor({distEnv}*_PROGTIME+.5)/{distEnv}')
+        elif distType == 'FM':
+            print('FM (phase mod) is not implemented yet... should be treated differently, anyway!')
+            return layerClean
+        else:
+            print(f'Distortion of type \'{distType}\' does not exist!')
+            return layerClean
 
     def linearEnvelope(self, env):
         if not env.points:
@@ -124,13 +154,31 @@ class Drumatize:
 
         term = ''
         for point, next in zip(env.points, env.points[1:]):
-            term += '_ENVTIME <= {}? linmix(_ENVTIME,{},{},{},{}):'.format(GLfloat(point.time), *self.fractCoefficients(point.time, next.time), GLfloat(point.value), GLfloat(next.value))
+            term += '_ENVTIME <= {}? linmix(_ENVTIME,{},{},{},{}):'.format(GLfloat(next.time), *self.linCoefficients(point.time, next.time), GLfloat(point.value), GLfloat(next.value))
 
         term += GLfloat(env.points[-1].value)
         return '(' + term + ')'
 
-    def fractCoefficients(self, x0, x1):
+    def linCoefficients(self, x0, x1):
         return GLfloat(round(1/(x1-x0), 4)), GLfloat(round(-x0/(x1-x0), 4))
 
     def expDecayFit(self, env):
-        pass
+        def expfunc(x, kappa):
+            return np.exp(-kappa*x)
+
+        attack = round(env.points[1].time, 4)
+        t_data = np.array([p.time - attack for p in env.points[1:]])
+        v_data = np.array([p.value for p in env.points[1:]])
+        print("times:", t_data, "values:", v_data)
+
+        try:
+            opt, cov = curve_fit(expfunc, t_data, v_data)
+            print(opt, cov)
+            kappa = round(opt[0], 4)
+        except RuntimeError as error:
+            print("RuntimeError:", error.args[0])
+            print("fit to exponential decay didn't work. use linear model...")
+            return self.linearEnvelope(env)
+
+        term = f'(_ENVTIME <= {attack}? smoothstep(0., {attack}, _ENVTIME): exp(-{kappa}*(_ENVTIME-{attack})) )'
+        return term
