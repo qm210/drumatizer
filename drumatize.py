@@ -59,7 +59,6 @@ class Drumatize:
                 raise ValueError
 
             glslPhaseMod = GLfloat(0)
-            #glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
             glslDetuneFactor = GLfloat(1)
             layerClean = self.oscFunction(layer.type, glslPhase, glslPhaseMod, glslDetuneFactor, GLfloat(freqEnv.points[0].value))
             layerCleanDict.update({layer._hash: layerClean})
@@ -73,7 +72,6 @@ class Drumatize:
                 glslPhaseMod = f'{GLfloat(layer.phasemodAmt)}*{glslAmplEnvs[layer.amplEnv]}*{layerCleanDict[layer.phasemodSrcHash]}'
                 glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
                 layerResult = self.oscFunction(layer.type, glslPhase, glslPhaseMod, glslDetuneFactor, GLfloat(layer.freqEnv.points[0].value))
-                print("HELP", layer.phasemodAmt, glslAmplEnvs[layer.amplEnv], '\n', glslPhaseMod, '\n', layerCleanDict[layer._hash], '\n', layerResult)
             else:
                 layerResult = layerCleanDict[layer._hash]
 

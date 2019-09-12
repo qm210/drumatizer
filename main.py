@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 #############################################################
 #
 #       the new aMaySyn Drumatizer (Matzes Drum Editor)
