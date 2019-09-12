@@ -49,6 +49,8 @@ class Drumatize:
             elif freqPointNumber == 3:
                 args = (freqEnv.points[1].time, freqEnv.points[2].time, freqEnv.points[0].value, freqEnv.points[1].value, freqEnv.points[2].value)
                 glslPhase = 'drop2_phase(_PROGTIME,{},{},{},{},{})'.format(*(GLfloat(arg) for arg in args))
+                #glslPhase = self.phaseThirdOrder(freqEnv.points)
+                print(glslPhase)
             else:
                 print('frequency envelope {} is invalid. Exiting...'.format(freqEnv.name))
                 raise ValueError
@@ -182,3 +184,21 @@ class Drumatize:
 
         term = f'(_ENVTIME <= {attack}? smoothstep(0., {attack}, _ENVTIME): exp(-{kappa}*(_ENVTIME-{attack})) )'
         return term
+
+    def phaseThirdOrder(self, freqPoints):
+        # conditions: three points are given and tangent through last one is flat
+        t1, t2 = freqPoints[1].time, freqPoints[2].time
+        f0, f1, f2 = freqPoints[0].value, freqPoints[1].value, freqPoints[2].value
+        A = np.array([[ t1*t1*t1, t1*t1, t1 ],
+                      [ t2*t2*t2, t2*t2, t2 ],
+                      [  3*t2*t2,  2*t2,  1 ]])
+        b = np.array([f1-f0, f2-f0, 0])
+        alpha, beta, gamma = np.linalg.solve(A, b)
+
+        funcThirdOrder = f'({round(alpha/4, 3)}*_PROGTIME*_PROGTIME*_PROGTIME*_PROGTIME+{round(beta/3, 3)}*_PROGTIME*_PROGTIME*_PROGTIME+{round(gamma/2, 3)}*_PROGTIME*_PROGTIME+{f0}*_PROGTIME)'
+
+        phaseAtPoint2 = GLfloat(round(alpha/4*t2*t2*t2*t2 + beta/3*t2*t2*t2 + gamma/2*t2*t2 + f0*t2, 3))
+        freqAtPoint2 = GLfloat(freqPoints[2].value)
+        timeAtPoint2 = GLfloat(freqPoints[2].time)
+        phaseAfterPoint2 = f'{freqAtPoint2}*(_PROGTIME-{timeAtPoint2})+{phaseAtPoint2}'
+        return f'(ENV_TIME <= {timeAtPoint2}? {funcThirdOrder}: {phaseAfterPoint2})'

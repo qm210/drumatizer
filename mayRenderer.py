@@ -148,7 +148,7 @@ class MayRenderer(QWidget):
         self.codeEditor.clear()
         source = source.replace('    ','\t').replace('   ', '\t')
         self.codeEditor.insertPlainText(source)
-        self.codeEditor.setFocus()
+        #self.codeEditor.setFocus() #TODO: think about whether we want this
         self.codeEditor.ensureCursorVisible()
 
     def pasteClipboard(self):

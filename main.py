@@ -50,6 +50,11 @@ class MainWindow(QWidget):
             if event.key() == Qt.Key_L:
                 self.autoload()
 
+        # no CTRL pressed
+        else:
+            if event.key() == Qt.Key_Return:
+                self.renderWidget.stopShader()
+
     def initState(self):
         self.autosaveInterval = 30e3 # every 30 sec
 

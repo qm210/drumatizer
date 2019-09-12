@@ -30,16 +30,16 @@ float drop_phase(float time, float t1, float f0, float f1)
 
 float drop2_phase(float time, float t1, float t2, float f0, float f1, float f2)
 {
-    float t = min(time, t1);
-    float phi = f0*t + .5*(f1-f0)/t1*t*t;
+    float t = clamp(time, 0., t1);
+    float phi = f0*t + .5*(f1-f0)/t1 * t*t;
     if(time > t1)
     {
-        t = min(time, t2);
-        phi += f1*t - t1*f2 + .5*(f2-f1)/(t2-t1)*(t*t - t1*t1);
+        t = clamp(time, t1, t2) - t1;
+        phi += .5*(f2-f1)/(t2-t1) * t*t + f1*t;
     }
     if(time > t2)
     {
-        phi += f2 * (time-t2);
+        phi += f2*(time - t2);
     }
     return phi;
 }
