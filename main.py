@@ -47,6 +47,12 @@ class MainWindow(QWidget):
                 self.renderWidget.pasteClipboard()
                 self.renderWidget.renderShaderAndPlay()
 
+            if event.key() == Qt.Key_B:
+                currentDrum = self.drumWidget.currentDrum()
+                print("called", currentDrum)
+                if currentDrum:
+                    self.renderWidget.renderShaderAndPlay(file = f'{currentDrum.name}.wav')
+
             if event.key() == Qt.Key_S:
                 print(f"Saving to {self.autosave_file}...")
                 self.autosave()
@@ -65,6 +71,16 @@ class MainWindow(QWidget):
         else:
             if event.key() == Qt.Key_Return:
                 self.renderWidget.stopShader()
+
+            if event.key() == Qt.Key_I:
+                self.drumWidget.changeWidgetDimensions(valueZoom = 0.91)
+            if event.key() == Qt.Key_K:
+                self.drumWidget.changeWidgetDimensions(valueZoom = 1.10)
+            if event.key() == Qt.Key_J:
+                self.drumWidget.changeWidgetDimensions(timeZoom = 1.10)
+            if event.key() == Qt.Key_L:
+                self.drumWidget.changeWidgetDimensions(timeZoom = 0.91)
+
 
     def initState(self):
         self.autosaveInterval = 30e3 # every 30 sec

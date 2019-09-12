@@ -31,7 +31,8 @@ class Drumatize:
         amplEnvSet = set(layer.amplEnv for layer in self.layers)
         glslAmplEnvs = {}
         for amplEnv in amplEnvSet:
-            if 'tryExpFit' in amplEnv.parameters and amplEnv.parameters['tryExpFit']:
+            tryExpFit = ('tryExpFit' in amplEnv.parameters and amplEnv.parameters['tryExpFit'])
+            if tryExpFit:
                 glslAmplEnvs[amplEnv] = self.expDecayFit(amplEnv)
             else:
                 glslAmplEnvs[amplEnv] = self.linearEnvelope(amplEnv)
@@ -43,20 +44,22 @@ class Drumatize:
         for layer in self.layers:
             freqEnv = layer.freqEnv
             freqPointNumber = freqEnv.pointNumber()
+            usePolynomial = ('usePolynomial' in freqEnv.parameters and freqEnv.parameters['usePolynomial'])
 
-            if freqPointNumber == 1:
-                glslPhase = '{}*_PROGTIME'.format(GLfloat(freqEnv.points[0].value))
-            elif freqPointNumber == 2:
-                args = (freqEnv.points[1].time, freqEnv.points[0].value, freqEnv.points[1].value)
-                glslPhase = 'drop_phase(_PROGTIME,{},{},{})'.format(*(GLfloat(arg) for arg in args))
-            elif freqPointNumber == 3:
-                args = (freqEnv.points[1].time, freqEnv.points[2].time, freqEnv.points[0].value, freqEnv.points[1].value, freqEnv.points[2].value)
-                glslPhase = 'drop2_phase(_PROGTIME,{},{},{},{},{})'.format(*(GLfloat(arg) for arg in args))
-                #glslPhase = self.phaseThirdOrder(freqEnv.points)
-                print(glslPhase)
+            if usePolynomial:
+                glslPhase = self.polynomialPhase(freqEnv.points)
             else:
-                print('frequency envelope {} is invalid. Exiting...'.format(freqEnv.name))
-                raise ValueError
+                if freqPointNumber == 1:
+                    glslPhase = '{}*_PROGTIME'.format(GLfloat(freqEnv.points[0].value))
+                elif freqPointNumber == 2:
+                    args = (freqEnv.points[1].time, freqEnv.points[0].value, freqEnv.points[1].value)
+                    glslPhase = 'drop_phase(_PROGTIME,{},{},{})'.format(*(GLfloat(arg) for arg in args))
+                elif freqPointNumber == 3:
+                    args = (freqEnv.points[1].time, freqEnv.points[2].time, freqEnv.points[0].value, freqEnv.points[1].value, freqEnv.points[2].value)
+                    glslPhase = 'drop2_phase(_PROGTIME,{},{},{},{},{})'.format(*(GLfloat(arg) for arg in args))
+                else:
+                    print('frequency envelope {} is invalid. Exiting...'.format(freqEnv.name))
+                    raise ValueError
 
             glslPhaseMod = GLfloat(0)
             glslDetuneFactor = GLfloat(1)
@@ -204,20 +207,35 @@ class Drumatize:
         term = f'(_ENVTIME <= {attack}? smoothstep(0., {attack}, _ENVTIME): exp(-{kappa}*(_ENVTIME-{attack})) )'
         return term
 
-    def phaseThirdOrder(self, freqPoints):
-        # conditions: three points are given and tangent through last one is flat
-        t1, t2 = freqPoints[1].time, freqPoints[2].time
-        f0, f1, f2 = freqPoints[0].value, freqPoints[1].value, freqPoints[2].value
-        A = np.array([[ t1*t1*t1, t1*t1, t1 ],
-                      [ t2*t2*t2, t2*t2, t2 ],
-                      [  3*t2*t2,  2*t2,  1 ]])
-        b = np.array([f1-f0, f2-f0, 0])
-        alpha, beta, gamma = np.linalg.solve(A, b)
+    def polynomialPhase(self, freqPoints):
+        numberPoints = len(freqPoints)
+        if numberPoints == 1:
+            return f'{freqPoints[0].value}*_PROGTIME'
+        elif numberPoints == 2:
+            t1 = freqPoints[1].time
+            f0, f1 = freqPoints[0].value, freqPoints[1].value
+            alpha = (f0-f1)/(t1*t1)
+            beta = -2 * (f0-f1)/t1
+            polyPhaseTerm = f'{round(alpha/3, 3)}*_PROGTIME*_PROGTIME*_PROGTIME+{round(beta/2, 3)}*_PROGTIME*_PROGTIME+{round(f0, 3)}*_PROGTIME'
+            phaseAtLastPoint = GLfloat(round(alpha/3*t1*t1*t1 + beta/2*t1*t1 + f0*t1, 3))
 
-        funcThirdOrder = f'({round(alpha/4, 3)}*_PROGTIME*_PROGTIME*_PROGTIME*_PROGTIME+{round(beta/3, 3)}*_PROGTIME*_PROGTIME*_PROGTIME+{round(gamma/2, 3)}*_PROGTIME*_PROGTIME+{f0}*_PROGTIME)'
+        elif numberPoints == 3:
+            # conditions: three points are given and tangent through last one is flat
+            t1, t2 = freqPoints[1].time, freqPoints[2].time
+            f0, f1, f2 = freqPoints[0].value, freqPoints[1].value, freqPoints[2].value
+            A = np.array([[ t1*t1*t1, t1*t1, t1 ],
+                        [ t2*t2*t2, t2*t2, t2 ],
+                        [  3*t2*t2,  2*t2,  1 ]])
+            b = np.array([f1-f0, f2-f0, 0])
+            alpha, beta, gamma = np.linalg.solve(A, b)
+            polyPhaseTerm = f'({round(alpha/4, 3)}*_PROGTIME*_PROGTIME*_PROGTIME*_PROGTIME+{round(beta/3, 3)}*_PROGTIME*_PROGTIME*_PROGTIME+{round(gamma/2, 3)}*_PROGTIME*_PROGTIME+{f0}*_PROGTIME)'
+            phaseAtLastPoint = GLfloat(round(alpha/4*t2*t2*t2*t2 + beta/3*t2*t2*t2 + gamma/2*t2*t2 + f0*t2, 3))
 
-        phaseAtPoint2 = GLfloat(round(alpha/4*t2*t2*t2*t2 + beta/3*t2*t2*t2 + gamma/2*t2*t2 + f0*t2, 3))
-        freqAtPoint2 = GLfloat(freqPoints[2].value)
-        timeAtPoint2 = GLfloat(freqPoints[2].time)
-        phaseAfterPoint2 = f'{freqAtPoint2}*(_PROGTIME-{timeAtPoint2})+{phaseAtPoint2}'
-        return f'(ENV_TIME <= {timeAtPoint2}? {funcThirdOrder}: {phaseAfterPoint2})'
+        else:
+            print("polynomialPhase() is not implemented for more than 3 points..! sorray!")
+            raise ValueError
+
+        freqAtLastPoint = GLfloat(freqPoints[-1].value)
+        timeAtLastPoint = GLfloat(freqPoints[-1].time)
+        phaseAfterLastPoint = f'{freqAtLastPoint}*(_PROGTIME-{timeAtLastPoint})+{phaseAtLastPoint}'
+        return f'(_ENVTIME <= {timeAtLastPoint}? {polyPhaseTerm}: {phaseAfterLastPoint})'

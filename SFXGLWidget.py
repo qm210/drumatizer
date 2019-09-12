@@ -47,6 +47,7 @@ class SFXGLWidget(QOpenGLWidget,QObject):
         self.duration_real = float(self.nsamples_real)/float(self.samplerate)
         self.image = None
         self.music = None
+        self.floatmusic = None
         self.moreUniforms = moreUniforms
 
     def initializeGL(self):
@@ -123,6 +124,8 @@ class SFXGLWidget(QOpenGLWidget,QObject):
 
         music = unpack('<'+str(self.blocksize*self.nblocks*2)+'H', music)
         music = (float32(music)-32768.)/32768.
+        self.floatmusic = music
+
         music = pack('<'+str(self.blocksize*self.nblocks*2)+'f', *music)
         self.music = music
 

@@ -215,22 +215,19 @@ class EnvelopeEncoder(json.JSONEncoder):
                 'points': json.dumps(obj.points, default = (lambda point: point.__dict__)),
                 'parameters': obj.parameters
             }
-        if isinstance(obj, list) and isinstance(obj[0], Envelope):
-            print("this is an evenelope list! deal with it.")
-            quit()
         else:
-            print("something else happened")
             return super().default(obj)
 
     @classmethod
     def decode(self, dict):
         if '__drumatizeEnvelope__' in dict:
             points = [EnvelopePoint(decodePoint = p) for p in json.loads(dict['points'])]
+            parameters = self.ensureParameterCompatibility(dict['parameters'], dict['type'])
             return Envelope(
                 name = dict['name'],
                 type = dict['type'],
                 points = points,
-                parameters = dict['parameters'],
+                parameters = parameters,
                 _hash = dict['__drumatizeEnvelope__'],
             )
         else:
@@ -240,3 +237,11 @@ class EnvelopeEncoder(json.JSONEncoder):
     def decodeList(self, list):
         print('decodeList', list)
         return [self.decode(env) for env in list if '__drumatizeEnvelope__' in env]
+
+    @classmethod
+    def ensureParameterCompatibility(self, parameters, type):
+        if type == 'amplitude' and 'tryExpFit' not in parameters:
+            parameters.update({'tryExpFit': False})
+        if type == 'frequency' and 'usePolynomial' not in parameters:
+            parameters.update({'usePolynomial': False})
+        return parameters

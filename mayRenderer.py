@@ -3,6 +3,8 @@ from PyQt5.QtCore import Qt, QFile, QFileInfo, QIODevice, QByteArray, QBuffer, Q
 from PyQt5.QtMultimedia import QAudioOutput, QAudioFormat, QAudioDeviceInfo, QAudio
 from datetime import datetime
 from random import randint
+import numpy as np
+from scipy.io import wavfile
 
 from SFXGLWidget import SFXGLWidget
 
@@ -221,7 +223,7 @@ class MayRenderer(QWidget):
         self.audiooutput.stop()
         self.updatePlayingUI()
 
-    def renderShaderAndPlay(self):
+    def renderShaderAndPlay(self, file = None):
         self.playing = True
         self.updatePlayingUI()
 
@@ -283,6 +285,7 @@ void main()
         glwidget.show()
         self.log = glwidget.newShader(shaderSource)
         self.music = glwidget.music
+        floatmusic = glwidget.floatmusic
         glwidget.hide()
         glwidget.destroy()
 
@@ -308,6 +311,18 @@ void main()
 
         self.progressBar.setMaximum(self.audiobuffer.size())
         self.audiooutput.notify.connect(self.proceedAudio)
+
+        if file is not None:
+            floatmusic_L = []
+            floatmusic_R = []
+            for n, sample in enumerate(floatmusic):
+                if n % 2 == 0:
+                    floatmusic_L.append(sample)
+                else:
+                    floatmusic_R.append(sample)
+            floatmusic_stereo = np.transpose(np.array([floatmusic_L, floatmusic_R], dtype = np.float32))
+            wavfile.write(file, self.samplerate, floatmusic_stereo)
+
 
     def proceedAudio(self):
         # print(self.audiobuffer.pos() / self.audioformat.sampleRate())

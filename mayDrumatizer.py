@@ -160,13 +160,13 @@ class MayDrumatizer(QWidget):
         self.amplEnvLayout.addWidget(self.amplEnvWidget, 80)
 
         self.amplEnvMainLayout = QVBoxLayout()
-        self.ampMenuLayout = QHBoxLayout()
-        self.ampMenuLayout.addWidget(QLabel('Amplitude Envelopes'))
-        self.ampMenuLayout.addStretch()
+        self.amplMenuLayout = QHBoxLayout()
+        self.amplMenuLayout.addWidget(QLabel('Amplitude Envelopes'))
+        self.amplMenuLayout.addStretch()
         self.amplEnvMenu_TryExpFitChkBox = QCheckBox('Try ExpDecay Fit')
-        self.ampMenuLayout.addWidget(self.amplEnvMenu_TryExpFitChkBox)
+        self.amplMenuLayout.addWidget(self.amplEnvMenu_TryExpFitChkBox)
 
-        self.amplEnvMainLayout.addLayout(self.ampMenuLayout, 10)
+        self.amplEnvMainLayout.addLayout(self.amplMenuLayout, 10)
         self.amplEnvMainLayout.addLayout(self.amplEnvLayout, 90)
 
         self.amplEnvGroup = QGroupBox()
@@ -195,7 +195,13 @@ class MayDrumatizer(QWidget):
         self.freqEnvLayout.addWidget(self.freqEnvWidget, 80)
 
         self.freqEnvMainLayout = QVBoxLayout()
-        self.freqEnvMainLayout.addWidget(QLabel('Frequency Envelopes'), 10)
+        self.freqMenuLayout = QHBoxLayout()
+        self.freqMenuLayout.addWidget(QLabel('Frequency Envelopes'))
+        self.freqMenuLayout.addStretch()
+        self.freqEnvMenu_UsePolynomialChkBox = QCheckBox('Use Polynomial')
+        self.freqMenuLayout.addWidget(self.freqEnvMenu_UsePolynomialChkBox)
+
+        self.freqEnvMainLayout.addLayout(self.freqMenuLayout, 10)
         self.freqEnvMainLayout.addLayout(self.freqEnvLayout, 90)
 
         self.freqEnvGroup = QGroupBox()
@@ -344,6 +350,7 @@ class MayDrumatizer(QWidget):
         self.freqEnvMenuBtnDel.pressed.connect(self.freqEnvDelete)
         self.freqEnvMenuBtnRnd.pressed.connect(self.freqEnvRandomize)
         self.freqEnvMenuBtnEdit.pressed.connect(self.freqEnvEditSettings)
+        self.freqEnvMenu_UsePolynomialChkBox.stateChanged.connect(self.freqEnvSetUsePolynomial)
 
         self.distEnvMenuBtnAdd.pressed.connect(self.distEnvAdd)
         self.distEnvMenuBtnDel.pressed.connect(self.distEnvDelete)
@@ -406,17 +413,30 @@ class MayDrumatizer(QWidget):
         self.ensureInternalMapping()
 
 
-    def changeWidgetDimensions(self):
-        inputDialog = DoubleInputDialog(self.parent, replaceTitle = 'Resize Views', replaceTimeLabel = 'Max. Time in sec.: (0 = default)', replaceValueLabel = 'Max. Value: (0 = default)',
-                                        time = 0, value = 0, maxValue = 20000)
-        if inputDialog.exec_():
-            maxTime = round(inputDialog.timeBox.value(), inputDialog.precision)
-            if maxTime < 1e-3:
-                maxTime = None
-            maxValue = round(inputDialog.valueBox.value(), inputDialog.precision)
-            if maxValue < 1e-3:
-                maxValue = None
-            self.initWidgetDimensions(maxTime = maxTime, maxValue = maxValue)
+    def changeWidgetDimensions(self, timeZoom = None, valueZoom = None):
+        if timeZoom is None and valueZoom is None:
+            inputDialog = DoubleInputDialog(self.parent, replaceTitle = 'Resize Views', replaceTimeLabel = 'Max. Time in sec.: (0 = default)', replaceValueLabel = 'Max. Value: (0 = default)',
+                                            time = 0, value = 0, maxValue = 20000)
+            if inputDialog.exec_():
+                maxTime = round(inputDialog.timeBox.value(), inputDialog.precision)
+                if maxTime < 1e-3:
+                    maxTime = None
+                maxValue = round(inputDialog.valueBox.value(), inputDialog.precision)
+                if maxValue < 1e-3:
+                    maxValue = None
+                self.initWidgetDimensions(maxTime = maxTime, maxValue = maxValue)
+        else:
+            if timeZoom is not None:
+                self.maxTime['amplitude'] *= timeZoom
+                self.maxTime['frequency'] *= timeZoom
+                self.maxTime['distortion'] *= timeZoom
+            if valueZoom is not None:
+                self.maxValue['amplitude'] *= valueZoom
+                self.maxValue['frequency'] *= valueZoom
+                self.maxValue['distortion'] *= valueZoom
+            self.amplEnvWidget.setDimensions(maxTime = self.maxTime['amplitude'], minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
+            self.freqEnvWidget.setDimensions(maxTime = self.maxTime['frequency'], minValue = self.minValue['frequency'], maxValue = self.maxValue['frequency'], logValue = True)
+            self.distEnvWidget.setDimensions(maxTime = self.maxTime['distortion'], minValue = self.minValue['distortion'], maxValue = self.maxValue['distortion'])
 
 
 ################################ MODEL FUNCTIONALITY ################################
@@ -609,7 +629,12 @@ class MayDrumatizer(QWidget):
         self.layerMenuMuteBox.setChecked(layer.mute)
         self.layerEditorDetuneSlider.setValue(layer.detune)
         self.layerEditorStereoDelaySlider.setValue(layer.stereodelay)
-        self.loadDistParams()
+
+        self.amplEnvMenu_TryExpFitChkBox.setChecked(layer.amplEnv.parameters['tryExpFit'])
+        self.freqEnvMenu_UsePolynomialChkBox.setChecked(layer.freqEnv.parameters['usePolynomial'])
+#        self.amplEnvLoad(current = self.amplEnvModel.indexOf(layer.amplEnv))
+#        self.freqEnvLoad(current = self.freqEnvModel.indexOf(layer.freqEnv))
+#        self.distEnvLoad(current = self.distEnvModel.indexOf(layer.distEnv))
 
         self.distMenuEdit_PhaseModOff.setChecked(not layer.phasemodOff)
         self.distMenuEdit_PhaseModAmt.setValue(layer.phasemodAmt)
@@ -664,8 +689,9 @@ class MayDrumatizer(QWidget):
 
     def layerRenderSolo(self):
         soloLayer = [self.currentLayer()]
-        # we also need the phaseMod layer, if given
-        if not self.currentLayer().phasemodOff:
+        needPhasemodLayer = (not self.currentLayer().phasemodOff and self.currentLayer().phasemodSrcHash != self.currentLayer()._hash)
+        # we also need the phaseMod layer, if given - but make sure it's muted
+        if needPhasemodLayer:
             soloLayer.append(self.layerModel.layerOfHash(self.currentLayer().phasemodSrcHash))
             keepPhaseModSrcMute = soloLayer[-1].mute
             soloLayer[-1].mute = True
@@ -674,7 +700,7 @@ class MayDrumatizer(QWidget):
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
         self.shaderCreated.emit(sourceShader)
 
-        if not self.currentLayer().phasemodOff:
+        if needPhasemodLayer:
             soloLayer[-1].mute = keepPhaseModSrcMute
 
     def layerSetName(self, name):
@@ -871,6 +897,7 @@ class MayDrumatizer(QWidget):
 
     def freqEnvLoad(self, current, previous = None):
         self.freqEnvWidget.loadEnvelope(self.freqEnvModel.envelopes[current.row()])
+        self.freqEnvMenu_UsePolynomialChkBox.setChecked(self.freqEnvModel.envelopes[current.row()].parameters['usePolynomial'])
 
     def freqEnvSelect(self, envelope):
         index = self.freqEnvModel.indexOf(envelope)
@@ -931,6 +958,9 @@ class MayDrumatizer(QWidget):
             env = self.currentFreqEnv()
             env.randomize(self.maxTime[env.type], self.minValue[env.type], self.maxValue[env.type])
             self.freqEnvWidget.update()
+
+    def freqEnvSetUsePolynomial(self, state):
+        self.currentFreqEnv().adjustParameter('usePolynomial', state == Qt.Checked)
 
 
 ############################ DISTORTION ENVELOPES ####################################
