@@ -375,19 +375,16 @@ class MayDrumatizer(QWidget):
         self.amplEnvList.setModel(self.amplEnvModel)
         self.amplEnvList.selectionModel().currentChanged.connect(self.amplEnvLoad)
         self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdateWidget) # TODO: check one day: do we need these?
-        #self.amplEnvModel.dataChanged.connect(self.amplEnvUpdateWidget)
 
         self.freqEnvModel = EnvelopeModel()
         self.freqEnvList.setModel(self.freqEnvModel)
         self.freqEnvList.selectionModel().currentChanged.connect(self.freqEnvLoad)
         self.freqEnvModel.layoutChanged.connect(self.freqEnvUpdateWidget)
-        #self.freqEnvModel.dataChanged.connect(self.freqEnvUpdateWidget)
 
         self.distEnvModel = EnvelopeModel()
         self.distEnvList.setModel(self.distEnvModel)
         self.distEnvList.selectionModel().currentChanged.connect(self.distEnvLoad)
         self.distEnvModel.layoutChanged.connect(self.distEnvUpdateWidget)
-        #self.distEnvModel.dataChanged.connect(self.distEnvUpdateWidget)
 
         self.layerChooseAmplEnvList.setModel(self.amplEnvModel)
         self.layerChooseFreqEnvList.setModel(self.freqEnvModel)
@@ -407,36 +404,6 @@ class MayDrumatizer(QWidget):
         self.drumInsertAndSelect(self.defaultDrum)
         self.drumLoad(0)
         self.ensureInternalMapping()
-
-        #self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
-        #    self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
-        #    self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
-
-    def updateDistParams(self, choice = None):
-        if choice is None:
-            choice = self.currentLayer().distType
-
-        if choice == 'Overdrive':
-            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_OverdriveMaximum)
-            self.adjustDistEnvWidgetMaximum(self.distMenuEdit_OverdriveMaximum.value())
-            distParam = None
-        elif choice == 'Waveshape':
-            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_WaveshapeParts)
-            self.adjustDistEnvWidgetMaximum(2)
-            distParam = self.distMenuEdit_WaveshapeParts.value()
-        elif choice == 'Lo-Fi':
-            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_LofiBits)
-            self.adjustDistEnvWidgetMaximum(2)
-            distParam = self.distMenuEdit_LofiBits.value()
-        else:
-            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
-            distParam = None
-
-        self.currentLayer().adjust(distType = choice, distParam = distParam)
-
-    def adjustDistEnvWidgetMaximum(self, value):
-        self.maxValue['distortion'] = value
-        self.distEnvWidget.setDimensions(maxValue = value)
 
 
     def changeWidgetDimensions(self):
@@ -642,10 +609,10 @@ class MayDrumatizer(QWidget):
         self.layerMenuMuteBox.setChecked(layer.mute)
         self.layerEditorDetuneSlider.setValue(layer.detune)
         self.layerEditorStereoDelaySlider.setValue(layer.stereodelay)
+        self.loadDistParams()
 
         self.distMenuEdit_PhaseModOff.setChecked(not layer.phasemodOff)
         self.distMenuEdit_PhaseModAmt.setValue(layer.phasemodAmt)
-        print("OK HASH", layer.phasemodSrcHash, self.layerModel.indexOfHash(layer.phasemodSrcHash))
         self.distMenuEdit_PhaseModSource.setCurrentIndex(self.layerModel.indexOfHash(layer.phasemodSrcHash) or 0)
 
     def layerUpdate(self):
@@ -666,9 +633,7 @@ class MayDrumatizer(QWidget):
             self.layerList.scrollTo(index)
 
     def layerAdd(self):
-        # TODO: add some 'Clone' function, disable for now
-        #if self.currentLayer():
-        #    newLayer = deepcopy(self.currentLayer())
+        # TODO: add some 'Clone' function, but not now
         self.amplEnvInsertAndSelect(defaultAmplEnvelope)
         self.freqEnvInsertAndSelect(defaultFreqEnvelope)
         self.distEnvInsertAndSelect(defaultDistEnvelope)
@@ -695,10 +660,7 @@ class MayDrumatizer(QWidget):
         self.layerSelect(nextIndex)
 
     def layerRandomize(self):
-        if self.anyAmplEnv():
-            env = self.currentAmplEnv()
-            env.randomize(self.maxTime[env.type], self.minValue[env.type], self.maxValue[env.type])
-            self.amplEnvWidget.update()
+        print("HAVE YET TO IMPLEMENT LAYER RANDOMIZE..! (sry)")
 
     def layerRenderSolo(self):
         soloLayer = [self.currentLayer()]
@@ -758,6 +720,52 @@ class MayDrumatizer(QWidget):
     def layerSetPhaseModSrc(self, index):
         self.currentLayer().adjust(phasemodSrcHash = self.layerModel.hashList()[index])
         self.layerUpdate()
+
+
+    def loadDistParams(self):
+        choice = self.currentLayer().distType
+        self.distMenuType.setCurrentText(choice)
+        distParam = self.currentLayer().distParam
+        if choice == 'Overdrive':
+            self.distMenuEdit_OverdriveMaximum.setValue(distParam)
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_OverdriveMaximum)
+            self.adjustDistEnvWidgetMaximum(distParam)
+        elif choice == 'Waveshape':
+            self.distMenuEdit_WaveshapeParts(distParam)
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_WaveshapeParts)
+            self.adjustDistEnvWidgetMaximum(2)
+        elif choice == 'Lo-Fi':
+            self.distMenuEdit_LofiBits.setValue(distParam)
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_LofiBits)
+            self.adjustDistEnvWidgetMaximum(2)
+        else:
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
+
+    def updateDistParams(self, choice = None):
+        if choice is None:
+            choice = self.currentLayer().distType
+
+        if choice == 'Overdrive':
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_OverdriveMaximum)
+            self.adjustDistEnvWidgetMaximum(self.distMenuEdit_OverdriveMaximum.value())
+            distParam = None
+        elif choice == 'Waveshape':
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_WaveshapeParts)
+            self.adjustDistEnvWidgetMaximum(2)
+            distParam = self.distMenuEdit_WaveshapeParts.value()
+        elif choice == 'Lo-Fi':
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_LofiBits)
+            self.adjustDistEnvWidgetMaximum(2)
+            distParam = self.distMenuEdit_LofiBits.value()
+        else:
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
+            distParam = None
+
+        self.currentLayer().adjust(distType = choice, distParam = distParam)
+
+    def adjustDistEnvWidgetMaximum(self, value):
+        self.maxValue['distortion'] = value
+        self.distEnvWidget.setDimensions(maxValue = value)
 
 ############################ AMPLITUDE ENVELOPES ####################################
 
