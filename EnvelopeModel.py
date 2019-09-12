@@ -190,7 +190,8 @@ defaultFreqEnvelope = Envelope(
         EnvelopePoint(0.00, 6000, name = 'freq0', fixedTime = True),
         EnvelopePoint(0.15, 1000, name = 'freq1'),
         EnvelopePoint(0.40,  200, name = 'freq2')
-    ])
+    ],
+    parameters = {'usePolynomial': False})
 
 defaultDistEnvelope = Envelope(
     name = '(default)',
@@ -240,8 +241,16 @@ class EnvelopeEncoder(json.JSONEncoder):
 
     @classmethod
     def ensureParameterCompatibility(self, parameters, type):
-        if type == 'amplitude' and 'tryExpFit' not in parameters:
-            parameters.update({'tryExpFit': False})
-        if type == 'frequency' and 'usePolynomial' not in parameters:
-            parameters.update({'usePolynomial': False})
+        if type == 'amplitude':
+            for defaultPar in defaultAmplEnvelope.parameters:
+                if defaultPar not in parameters:
+                    parameters.update({defaultPar: defaultAmplEnvelope.parameters[defaultPar]})
+        if type == 'frequency':
+            for defaultPar in defaultFreqEnvelope.parameters:
+                if defaultPar not in parameters:
+                    parameters.update({defaultPar: defaultFreqEnvelope.parameters[defaultPar]})
+        if type == 'distortion':
+            for defaultPar in defaultDistEnvelope.parameters:
+                if defaultPar not in parameters:
+                    parameters.update({defaultPar: defaultDistEnvelope.parameters[defaultPar]})
         return parameters

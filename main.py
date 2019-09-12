@@ -54,6 +54,7 @@ class MainWindow(QWidget):
                     self.renderWidget.renderShaderAndPlay(file = f'{currentDrum.name}.wav')
 
             if event.key() == Qt.Key_S:
+                self.drumWidget.purgeUnusedEnvelopes()
                 print(f"Saving to {self.autosave_file}...")
                 self.autosave()
 
