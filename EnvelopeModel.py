@@ -17,31 +17,34 @@ class Envelope:
     def __str__(self):
         return self.name
 
-    def adjust(self, name = None, points = None, pointNumber = None, parameters = None):
+    def adjust(self, name = None, points = None, parameters = None, pointNumber = None, singlePointValue = None):
         if name is not None:
             self.name = name
         if points is not None:
             self.points = points
         else:
             oldNumber = len(self.points)
-            if pointNumber is not None and pointNumber > 1:
-                if pointNumber < oldNumber:
-                    if pointNumber == 2 and self.type == 'amplitude':
-                        self.points = self.points[0:2]
-                    else:
-                        self.points = self.points[0:pointNumber-1] + [self.points[-1]]
-                elif pointNumber > oldNumber:
-                    if oldNumber == 2 and self.type == 'amplitude':
-                        self.points.append(EnvelopePoint(time = pi/4, value = 0))
-                        oldNumber += 1
-                    elif oldNumber == 1:
-                        self.points.append(EnvelopePoint(time = pi/4, value = self.points[0].value))
-                        oldNumber += 1
-                    # my super-awesome golden ratio algorithm C=
-                    for _ in range(pointNumber - oldNumber):
-                        goldenTime = .382 * self.points[-2].time + .618 * self.points[-1].time
-                        goldenValue = .382 * self.points[-2].value + .618 * self.points[-1].value
-                        self.points.insert(-1, EnvelopePoint(time = goldenTime, value = goldenValue))
+            if pointNumber is not None:
+                if pointNumber == 1:
+                    self.points = [EnvelopePoint(time = 0, value = singlePointValue or 0)]
+                else:
+                    if pointNumber < oldNumber:
+                        if pointNumber == 2 and self.type == 'amplitude':
+                            self.points = self.points[0:2]
+                        else:
+                            self.points = self.points[0:pointNumber-1] + [self.points[-1]]
+                    elif pointNumber > oldNumber:
+                        if oldNumber == 2 and self.type == 'amplitude':
+                            self.points.append(EnvelopePoint(time = pi/4, value = 0))
+                            oldNumber += 1
+                        elif oldNumber == 1:
+                            self.points.append(EnvelopePoint(time = pi/4, value = self.points[0].value))
+                            oldNumber += 1
+                        # my super-awesome golden ratio algorithm C=
+                        for _ in range(pointNumber - oldNumber):
+                            goldenTime = .382 * self.points[-2].time + .618 * self.points[-1].time
+                            goldenValue = .382 * self.points[-2].value + .618 * self.points[-1].value
+                            self.points.insert(-1, EnvelopePoint(time = goldenTime, value = goldenValue))
 
         if parameters is not None:
             self.parameters = parameters

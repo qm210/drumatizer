@@ -5,7 +5,7 @@ import json
 from EnvelopeModel import EnvelopeEncoder
 
 layerTypes = ['SIN', 'SAW', 'SQU', 'TRI', 'WHTNS', 'PRLNS']
-distTypes = ['Overdrive', 'Waveshape', 'FM', 'Lo-Fi']
+distTypes = ['Overdrive', 'Waveshape', 'Lo-Fi']
 
 
 class Layer:
@@ -14,7 +14,7 @@ class Layer:
     unitDetune = 1e-3
     unitStereoDelay = 1e-5
 
-    def __init__(self, name = None, amplEnv = None, freqEnv = None, distEnv = None):
+    def __init__(self, name = None, amplEnv = None, freqEnv = None, distEnv = None, _hash = None):
         self.name = name or self.talkSomeTeam210Shit()
         self.type = layerTypes[0]
         self.amplEnv = amplEnv
@@ -23,10 +23,14 @@ class Layer:
         self.distType = 'Overdrive'
         self.distParam = 2
         self.distOff = True
+        self.phasemodSrcHash = None
+        self.phasemodAmt = 0
+        self.phasemodOff = True
         self.volume = 100
         self.mute = False
         self.detune = 0
         self.stereodelay = 0
+        self._hash = _hash or hash(self)
 
     def __str__(self):
         volumeRepr = '{}%'.format(self.volume) if not self.mute else 'MUTED'
@@ -57,6 +61,12 @@ class Layer:
             self.detune = args['detune']
         if 'stereodelay' in args:
             self.stereodelay = args['stereodelay']
+        if 'phasemodOff' in args:
+            self.phasemodOff = args['phasemodOff']
+        if 'phasemodAmt' in args:
+            self.phasemodAmt = args['phasemodAmt']
+        if 'phasemodSrcHash' in args:
+            self.phasemodSrcHash = args['phasemodSrcHash']
 
 
     def talkSomeTeam210Shit(self, skip = []):
@@ -168,6 +178,18 @@ class LayerModel(QAbstractListModel):
             self.layers[numericalIndex], self.layers[numericalNextIndex] = self.layers[numericalNextIndex], self.layers[numericalIndex]
             self.emitAllChanged()
 
+    def hashList(self):
+        return [layer._hash for layer in self.layers]
+
+    def indexOfHash(self, _hash):
+        try:
+            return self.hashList().index(_hash)
+        except ValueError:
+            return None
+
+    def layerOfHash(self, _hash):
+        index = self.indexOfHash(_hash)
+        return self.layers[index] if index else None
 
 class LayerEncoder(json.JSONEncoder):
 
@@ -175,10 +197,10 @@ class LayerEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Layer):
             return {
-                '__drumatizeLayer__': hash(obj),
+                '__drumatizeLayer__': obj._hash,
                 'name': obj.name,
                 'type': obj.type,
-                'amplEnv': json.dumps(obj.amplEnv, cls = EnvelopeEncoder),
+                'amplEnv': json.dumps(obj.amplEnv, cls = EnvelopeEncoder), # TODO: actually, we would just need to store the hash here
                 'freqEnv': json.dumps(obj.freqEnv, cls = EnvelopeEncoder),
                 'distEnv': json.dumps(obj.distEnv, cls = EnvelopeEncoder),
                 'distType': obj.distType,
@@ -187,7 +209,10 @@ class LayerEncoder(json.JSONEncoder):
                 'volume': obj.volume,
                 'mute': obj.mute,
                 'detune': obj.detune,
-                'stereodelay': obj.stereodelay
+                'stereodelay': obj.stereodelay,
+                'phasemodOff': obj.phasemodOff,
+                'phasemodAmt': obj.phasemodAmt,
+                'phasemodSrcHash': obj.phasemodSrcHash
             }
         else:
             return super().default(obj)
@@ -199,7 +224,8 @@ class LayerEncoder(json.JSONEncoder):
                 name = dict['name'],
                 amplEnv = json.loads(dict['amplEnv'], object_hook = EnvelopeEncoder.decode),
                 freqEnv = json.loads(dict['freqEnv'], object_hook = EnvelopeEncoder.decode),
-                distEnv = json.loads(dict['distEnv'], object_hook = EnvelopeEncoder.decode)
+                distEnv = json.loads(dict['distEnv'], object_hook = EnvelopeEncoder.decode),
+                _hash = dict['__drumatizeLayer__']
             )
             layer.type = dict['type']
             layer.distType = dict['distType']
@@ -209,5 +235,8 @@ class LayerEncoder(json.JSONEncoder):
             layer.mute = dict['mute']
             layer.detune = dict['detune']
             layer.stereodelay = dict['stereodelay']
+            layer.phasemodOff = dict['phasemodOff']
+            layer.phasemodAmt = dict['phasemodAmt']
+            layer.phasemodSrcHash = dict['phasemodSrcHash']
             return layer
         return dict

@@ -4,6 +4,9 @@ from PyQt5 import QtWidgets, QtCore
 class DoubleInputDialog(QtWidgets.QDialog):
 
     def __init__(self, parent, *args, time = 0, value = 0, maxValue = 1, fixedTime = False, fixedValue = False, name = None, point = None, **kwargs):
+        self.replaceTitle = kwargs.pop('replaceTitle') if 'replaceTitle' in kwargs else None
+        self.replaceTimeLabel = kwargs.pop('replaceTimeLabel') if 'replaceTimeLabel' in kwargs else None
+        self.replaceValueLabel = kwargs.pop('replaceValueLabel') if 'replaceValueLabel' in kwargs else None
         super(DoubleInputDialog, self).__init__(parent, *args, **kwargs)
         # self.setAttribute(QtCore.Qt.WA_DeleteOnClose) # <-- this leads to a RuntimeError
 
@@ -15,6 +18,8 @@ class DoubleInputDialog(QtWidgets.QDialog):
             name = point.name
 
         self.setWindowTitle('(?)' if name is None else name)
+        if self.replaceTitle is not None:
+            self.setWindowTitle(self.replaceTitle)
 
         self.precision = 3
 
@@ -24,7 +29,8 @@ class DoubleInputDialog(QtWidgets.QDialog):
 
         self.layout = QtWidgets.QVBoxLayout(self)
 
-        self.layout.addWidget(QtWidgets.QLabel("time / sec:", self))
+        timeLabel = 'time / sec:' if self.replaceTimeLabel is None else self.replaceTimeLabel
+        self.layout.addWidget(QtWidgets.QLabel(timeLabel, self))
         self.timeBox = QtWidgets.QDoubleSpinBox(self)
         self.timeBox.setDecimals(self.precision)
         self.timeBox.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
@@ -32,7 +38,8 @@ class DoubleInputDialog(QtWidgets.QDialog):
         self.timeBox.setEnabled(not fixedTime)
         self.layout.addWidget(self.timeBox)
 
-        self.layout.addWidget(QtWidgets.QLabel("value:", self))
+        valueLabel = 'value:' if self.replaceValueLabel is None else self.replaceValueLabel
+        self.layout.addWidget(QtWidgets.QLabel(valueLabel, self))
         self.valueBox = QtWidgets.QDoubleSpinBox(self)
         self.valueBox.setMaximum(maxValue)
         self.valueBox.setDecimals(self.precision)
