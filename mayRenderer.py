@@ -146,7 +146,7 @@ class MayRenderer(QWidget):
 
     def paste(self, source):
         self.codeEditor.clear()
-        source = source.replace('    ','\t').replace('   ', '\t')
+        source = source.replace(4*' ','\t').replace(3*' ', '\t')
         self.codeEditor.insertPlainText(source)
         #self.codeEditor.setFocus() #TODO: think about whether we want this
         self.codeEditor.ensureCursorVisible()
@@ -155,8 +155,8 @@ class MayRenderer(QWidget):
         self.paste(self.shaderHeader + QApplication.clipboard().text())
 
     def copyToClipboard(self):
-        print("TODO: Implement copyToClipboard()")
-        self.codeEditor.setFocus()
+        text = self.codeEditor.toPlainText().replace('\t', 4*' ')
+        QApplication.clipboard().setText(text)
 
     def clearEditor(self):
         self.codeEditor.setPlainText('')

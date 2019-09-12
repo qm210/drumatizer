@@ -17,6 +17,8 @@ from mayStyle import mayStyle
 
 class MainWindow(QWidget):
 
+    autosave_file = 'auto.drumset'
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle('QoodMood')
@@ -45,10 +47,18 @@ class MainWindow(QWidget):
                 self.renderWidget.renderShaderAndPlay()
 
             if event.key() == Qt.Key_S:
+                print(f"Saving to {self.autosave_file}...")
                 self.autosave()
 
             if event.key() == Qt.Key_L:
+                print(f"Loading from {self.autosave_file}...")
                 self.autoload()
+
+            if event.key() == Qt.Key_P:
+                self.drumWidget.purgeUnusedEnvelopes()
+
+            if event.key() == Qt.Key_T:
+                self.drumWidget.changeWidgetDimensions()
 
         # no CTRL pressed
         else:
@@ -74,13 +84,13 @@ class MainWindow(QWidget):
 
     def autoload(self):
         try:
-            self.drumWidget.drumImport(name = 'auto.drumset')
+            self.drumWidget.drumImport(name = self.autosave_file)
         except FileNotFoundError:
             self.drumWidget.initData()
 
     def autosave(self):
         try:
-            self.drumWidget.drumExport(name = 'auto.drumset')
+            self.drumWidget.drumExport(name = self.autosave_file)
         except Exception as ex:
             print('Autosave failed...', ex)
 

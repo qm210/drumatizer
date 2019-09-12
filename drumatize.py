@@ -20,10 +20,13 @@ class Drumatize:
 
     def __init__(self, layers):
         self.layers = layers
+        self.separateFunctionCount = 0
+        self.separateFunctionCode = ''
 
     def drumatize(self):
 
-        groupedResultsWithoutAmplEnv = {}
+        groupedResultsWithoutAmplEnv_L = {}
+        groupedResultsWithoutAmplEnv_R = {}
 
         amplEnvSet = set(layer.amplEnv for layer in self.layers)
         glslAmplEnvs = {}
@@ -33,11 +36,11 @@ class Drumatize:
             else:
                 glslAmplEnvs[amplEnv] = self.linearEnvelope(amplEnv)
 
-            groupedResultsWithoutAmplEnv[amplEnv] = []
+            groupedResultsWithoutAmplEnv_L[amplEnv] = []
+            groupedResultsWithoutAmplEnv_R[amplEnv] = []
 
+        layerCleanDict = {}
         for layer in self.layers:
-            print("layer!", layer.name, layer.mute)
-
             freqEnv = layer.freqEnv
             freqPointNumber = freqEnv.pointNumber()
 
@@ -55,69 +58,77 @@ class Drumatize:
                 print('frequency envelope {} is invalid. Exiting...'.format(freqEnv.name))
                 raise ValueError
 
-            glslPhaseShift = GLfloat(0)
-            glslVolume = GLfloat(layer.volume * layer.unitVolume)
-            glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
-            layerClean = self.oscFunction(layer.type, glslPhase, glslPhaseShift, glslDetuneFactor, GLfloat(freqEnv.points[0].value))
+            glslPhaseMod = GLfloat(0)
+            #glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
+            glslDetuneFactor = GLfloat(1)
+            layerClean = self.oscFunction(layer.type, glslPhase, glslPhaseMod, glslDetuneFactor, GLfloat(freqEnv.points[0].value))
+            layerCleanDict.update({layer._hash: layerClean})
 
-            if layer.distOff:
-                layerDistorted = layerClean
+        for layer in self.layers:
+            if layer.mute:
+                continue
+
+            if not layer.phasemodOff:
+                print(layerCleanDict, '\n')
+                glslPhaseMod = f'{GLfloat(layer.phasemodAmt)}*{glslAmplEnvs[layer.amplEnv]}*{layerCleanDict[layer.phasemodSrcHash]}'
+                glslDetuneFactor = GLfloat(1. - layer.detune * layer.unitDetune)
+                layerResult = self.oscFunction(layer.type, glslPhase, glslPhaseMod, glslDetuneFactor, GLfloat(layer.freqEnv.points[0].value))
+                print("HELP", layer.phasemodAmt, glslAmplEnvs[layer.amplEnv], '\n', glslPhaseMod, '\n', layerCleanDict[layer._hash], '\n', layerResult)
             else:
+                layerResult = layerCleanDict[layer._hash]
+
+            if not layer.distOff:
                 glslDistEnv = self.linearEnvelope(layer.distEnv)
-                layerDistorted = self.applyDistortion(layerClean, layer.distType, layer.distParam, glslDistEnv)
+                layerResult = self.applyDistortion(layerResult, layer.distType, layer.distParam, glslDistEnv)
 
-            if not layer.mute:
-                groupedResultsWithoutAmplEnv[layer.amplEnv].append(f'{glslVolume}*{layerDistorted}')
+            stereodelay = GLfloat(round(layer.stereodelay * layer.unitStereoDelay, 5))
+            _PROGTIME_R = f'(_t-{stereodelay})' if layer.stereodelay != 0 else '_t'
+            layerResult_L = layerResult.replace('_PROGTIME', '_t')
+            layerResult_R = layerResult.replace('_PROGTIME', _PROGTIME_R)
 
-        groupResults = []
+            glslVolume = GLfloat(layer.volume * layer.unitVolume)
+            groupedResultsWithoutAmplEnv_L[layer.amplEnv].append(f'{glslVolume}*{layerResult_L}')
+            groupedResultsWithoutAmplEnv_R[layer.amplEnv].append(f'{glslVolume}*{layerResult_R}')
+
+        groupResults_L = []
+        groupResults_R = []
         for amplEnv in amplEnvSet:
-            groupedResults = groupedResultsWithoutAmplEnv[layer.amplEnv]
-            if groupedResults:
-                groupResults.append('{}*({})'.format(glslAmplEnvs[amplEnv], '+'.join(groupedResultsWithoutAmplEnv[amplEnv])))
-            else:
-                groupResults.append('0.')
+            grouped_L = groupedResultsWithoutAmplEnv_L[layer.amplEnv]
+            grouped_R = groupedResultsWithoutAmplEnv_R[layer.amplEnv]
+            groupResults_L.append('{}*({})'.format(glslAmplEnvs[amplEnv], '+'.join(grouped_L)) if grouped_L else '0.')
+            groupResults_R.append('{}*({})'.format(glslAmplEnvs[amplEnv], '+'.join(grouped_R)) if grouped_R else '0.')
 
-        result = '+'.join(groupResults)
+        resultL = '+'.join(groupResults_L).replace('_ENVTIME', '_t')
+        resultR = '+'.join(groupResults_R).replace('_ENVTIME', '_t')
+        envFuncCode = self.separateFunctionCode.replace('_ENVTIME', 't')
 
-        stereodelay = GLfloat(round(layer.stereodelay * layer.unitStereoDelay, 5))
-        _PROGTIME_R = f'(_t-{stereodelay})' if layer.stereodelay != 0 else '_t'
+        return resultL, resultR, envFuncCode
 
-        result = result.replace('_ENVTIME', '_t')
-        resultL = result.replace('_PROGTIME', '_t')
-        resultR = result.replace('_PROGTIME', _PROGTIME_R)
-
-        return resultL, resultR
-
-        # freqFunction = self.oscFunction(self.layer.type, freq, 0)
-        # TODO: add option to add another envelope as phase.. heheh... hehehehe... --> nice reverb emulation and FM
-
-    def oscFunction(self, indicator, phase, phaseShift, detuneFactor, freqForPerlinNoise):
-        noPhaseShift = (phaseShift == GLfloat(0))
+    def oscFunction(self, indicator, phase, PhaseMod, detuneFactor, freqForNoise):
+        noPhaseMod = (PhaseMod == GLfloat(0))
         noDetune = (detuneFactor == GLfloat(1))
 
         if indicator == 'SIN':
-            if noPhaseShift:
+            if noPhaseMod:
                 phaseArgs = phase
                 func = '_sin'
             else:
-                phaseArgs = f'{phase},{phaseShift}'
+                phaseArgs = f'{phase},{PhaseMod}'
                 func = '_sin_'
 
             if noDetune:
-                return f'_sin({phaseArgs})'
+                return f'{func}({phaseArgs})'
             else:
-                return f'(.5*_sin({phaseArgs})+.5*_sin({detuneFactor}*{phaseArgs}))'
+                return f'(.5*{func}({phaseArgs})+.5*{func}({detuneFactor}*{phaseArgs}))'
 
         elif indicator == 'PRLNS':
-            # how could I implement a change in freqForPerlinNoise - TODO: think.
+            # how could I implement a change in freqForNoise - TODO: think.
             if noDetune:
-                return f'lpnoise(_PROGTIME,{freqForPerlinNoise})'
+                return f'lpnoise(_PROGTIME,{freqForNoise})'
             else:
-                return f'(.5*lpnoise(_PROGTIME,{freqForPerlinNoise})+.5*lpnoise(_PROGTIME,{detuneFactor}*{freqForPerlinNoise}))'
+                return f'(.5*lpnoise(_PROGTIME,{freqForNoise})+.5*lpnoise(_PROGTIME,{detuneFactor}*{freqForNoise}))'
 
         else:
-            phaseArgs = phase if noPhaseShift else f'{phase}+{phaseShift}'
-
             if indicator == 'SAW':
                 func = '_saw'
             elif indicator == 'SQU':
@@ -126,9 +137,12 @@ class Drumatize:
                 func = '_tri'
             elif indicator == 'WHTNS':
                 func = 'pseudorandom'
+                phase = f'{freqForNoise}*_PROGTIME'
             else:
                 print(f'oscFunction({indicator},...) is not defined. Exiting...')
                 raise ValueError
+
+            phaseArgs = phase if noPhaseMod else f'{phase}+{PhaseMod}'
 
             if noDetune:
                 return f'{func}({phaseArgs})'
@@ -142,7 +156,7 @@ class Drumatize:
             return f'sinshape({layerClean}, {distEnv}, {GLfloat(distParam)})'
         elif distType == 'Lo-Fi':
             distEnv = f'({GLfloat(distParam)}*{distEnv})'
-            return layerClean.replace('_PROGTIME',f'floor({distEnv}*_PROGTIME+.5)/{distEnv}')
+            return layerClean.replace('_PROGTIME',f'lofi(_PROGTIME,{distEnv})')
         elif distType == 'FM':
             print('FM (phase mod) is not implemented yet... should be treated differently, anyway!')
             return layerClean
@@ -151,15 +165,22 @@ class Drumatize:
             return layerClean
 
     def linearEnvelope(self, env):
-        if not env.points:
+        if len(env.points) == 0:
             return '0'
+        elif len(env.points) == 1:
+            return env.points[0].value
+
+        separateFunction = f'env{self.separateFunctionCount}'
+        self.separateFunctionCount += 1
 
         term = ''
         for point, next in zip(env.points, env.points[1:]):
             term += '_ENVTIME <= {}? linmix(_ENVTIME,{},{},{},{}):'.format(GLfloat(next.time), *self.linCoefficients(point.time, next.time), GLfloat(point.value), GLfloat(next.value))
 
         term += GLfloat(env.points[-1].value)
-        return '(' + term + ')'
+
+        self.separateFunctionCode += f'float {separateFunction}(float _ENVTIME){{return {term};}}\n'
+        return separateFunction + '(_ENVTIME)'
 
     def linCoefficients(self, x0, x1):
         return GLfloat(round(1/(x1-x0), 4)), GLfloat(round(-x0/(x1-x0), 4))
