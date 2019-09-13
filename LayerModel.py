@@ -14,12 +14,12 @@ class Layer:
     unitDetune = 1e-3
     unitStereoDelay = 1e-5
 
-    def __init__(self, amplEnv, freqEnv, distEnv, name = None, _hash = None):
+    def __init__(self, amplEnv = None, freqEnv = None, distEnv = None, name = None, _hash = None, amplEnvHash = None, freqEnvHash = None, distEnvHash = None):
         self.name = name or self.talkSomeTeam210Shit()
         self.type = layerTypes[0]
-        self.amplEnv = amplEnv
-        self.freqEnv = freqEnv
-        self.distEnv = distEnv
+        self.amplEnvHash = amplEnv._hash if amplEnv is not None else amplEnvHash
+        self.freqEnvHash = freqEnv._hash if freqEnv is not None else freqEnvHash
+        self.distEnvHash = distEnv._hash if distEnv is not None else distEnvHash
         self.distType = 'Overdrive'
         self.distParam = 2
         self.distOff = True
@@ -34,7 +34,7 @@ class Layer:
 
     def __str__(self):
         volumeRepr = '{}%'.format(self.volume) if not self.mute else 'MUTED'
-        return f'{self.name} ({volumeRepr} × {self.type} × {self.amplEnv.name})'
+        return f'{self.name} ({volumeRepr})'
 
     def adjust(self, **args):
         if 'name' in args:
@@ -42,11 +42,11 @@ class Layer:
         if 'type' in args:
             self.type = args['type']
         if 'amplEnv' in args:
-            self.amplEnv = args['amplEnv']
+            self.amplEnvHash = args['amplEnv']._hash
         if 'freqEnv' in args:
-            self.freqEnv = args['freqEnv']
+            self.freqEnvHash = args['freqEnv']._hash
         if 'distEnv' in args:
-            self.distEnv = args['distEnv']
+            self.distEnvHash = args['distEnv']._hash
         if 'distType' in args:
             self.distType = args['distType']
         if 'distParam' in args:
@@ -200,9 +200,9 @@ class LayerEncoder(json.JSONEncoder):
                 '__drumatizeLayer__': obj._hash,
                 'name': obj.name,
                 'type': obj.type,
-                'amplEnv': json.dumps(obj.amplEnv, cls = EnvelopeEncoder), # TODO: actually, we would just need to store the hash here
-                'freqEnv': json.dumps(obj.freqEnv, cls = EnvelopeEncoder),
-                'distEnv': json.dumps(obj.distEnv, cls = EnvelopeEncoder),
+                'amplEnvHash': obj.amplEnvHash,
+                'freqEnvHash': obj.freqEnvHash,
+                'distEnvHash': obj.distEnvHash,
                 'distType': obj.distType,
                 'distParam': obj.distParam,
                 'distOff': obj.distOff,
@@ -223,9 +223,9 @@ class LayerEncoder(json.JSONEncoder):
         if '__drumatizeLayer__' in dict:
             layer = Layer(
                 name = dict['name'],
-                amplEnv = json.loads(dict['amplEnv'], object_hook = EnvelopeEncoder.decode),
-                freqEnv = json.loads(dict['freqEnv'], object_hook = EnvelopeEncoder.decode),
-                distEnv = json.loads(dict['distEnv'], object_hook = EnvelopeEncoder.decode),
+                amplEnvHash = dict['amplEnvHash'],
+                freqEnvHash = dict['freqEnvHash'],
+                distEnvHash = dict['distEnvHash'],
                 _hash = dict['__drumatizeLayer__']
             )
             layer.type = dict['type']

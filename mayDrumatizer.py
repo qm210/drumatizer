@@ -19,7 +19,7 @@ from EnvelopeWidget import EnvelopeWidget
 from SettingsDialog import SettingsDialog
 from RenameReplaceDialog import RenameReplaceDialog
 from DoubleInputDialog import DoubleInputDialog
-from drumatize import Drumatize
+from Drumatizer import Drumatizer
 
 class MayDrumatizer(QWidget):
 
@@ -310,6 +310,8 @@ class MayDrumatizer(QWidget):
             self.maxValue['frequency'] = maxValue
             self.maxValue['distortion'] = maxValue
 
+        print(self.maxValue)
+
         self.amplEnvWidget.setDimensions(maxTime = self.maxTime['amplitude'], minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
         self.freqEnvWidget.setDimensions(maxTime = self.maxTime['frequency'], minValue = self.minValue['frequency'], maxValue = self.maxValue['frequency'], logValue = True)
         self.distEnvWidget.setDimensions(maxTime = self.maxTime['distortion'], minValue = self.minValue['distortion'], maxValue = self.maxValue['distortion'])
@@ -368,6 +370,7 @@ class MayDrumatizer(QWidget):
         self.freqEnvWidget.pointsChanged.connect(self.freqEnvUpdateCurrent)
         self.distEnvWidget.pointsChanged.connect(self.distEnvUpdateCurrent)
 
+
     def initModelView(self):
         self.drumModel = DrumModel()
         self.drumList.setModel(self.drumModel)
@@ -382,22 +385,26 @@ class MayDrumatizer(QWidget):
         self.amplEnvList.setModel(self.amplEnvModel)
         self.amplEnvList.selectionModel().currentChanged.connect(self.amplEnvLoad)
         self.amplEnvModel.layoutChanged.connect(self.amplEnvUpdateWidget) # TODO: check one day: do we need these?
+        self.amplEnvModel.dataChanged.connect(self.updateDrumAmplEnvs)
 
         self.freqEnvModel = EnvelopeModel()
         self.freqEnvList.setModel(self.freqEnvModel)
         self.freqEnvList.selectionModel().currentChanged.connect(self.freqEnvLoad)
         self.freqEnvModel.layoutChanged.connect(self.freqEnvUpdateWidget)
+        self.freqEnvModel.dataChanged.connect(self.updateDrumFreqEnvs)
 
         self.distEnvModel = EnvelopeModel()
         self.distEnvList.setModel(self.distEnvModel)
         self.distEnvList.selectionModel().currentChanged.connect(self.distEnvLoad)
         self.distEnvModel.layoutChanged.connect(self.distEnvUpdateWidget)
+        self.distEnvModel.dataChanged.connect(self.updateDrumDistEnvs)
 
         self.layerChooseAmplEnvList.setModel(self.amplEnvModel)
         self.layerChooseFreqEnvList.setModel(self.freqEnvModel)
         self.layerChooseDistEnvList.setModel(self.distEnvModel)
 
         self.distMenuEdit_PhaseModSource.setModel(self.layerModel)
+
 
 
     def initData(self):
@@ -410,7 +417,6 @@ class MayDrumatizer(QWidget):
         # here one could load'em all!
         self.drumInsertAndSelect(self.defaultDrum)
         self.drumLoad(0)
-        self.ensureInternalMapping()
 
 
     def changeWidgetDimensions(self, timeZoom = None, valueZoom = None):
@@ -455,11 +461,18 @@ class MayDrumatizer(QWidget):
         print('Purge unused envelopes...')
         hashsInUse = []
         for layer in self.layerModel.layers:
-            hashsInUse += [layer.amplEnv._hash, layer.freqEnv._hash, layer.distEnv._hash]
+            hashsInUse += [layer.amplEnvHash, layer.freqEnvHash, layer.distEnvHash]
 
         for model in [self.amplEnvModel, self.freqEnvModel, self.distEnvModel]:
             reducedEnvs = [env for env in model.envelopes if env._hash in hashsInUse]
             model.clearAndRefill(reducedEnvs)
+
+    def drumatizeLayers(self, layers):
+        drumatizer = Drumatizer(layers, self.amplEnvModel.envelopes, self.freqEnvModel.envelopes, self.distEnvModel.envelopes)
+        drumatizeL, drumatizeR, envFunc = drumatizer.drumatize()
+        sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
+        self.shaderCreated.emit(sourceShader)
+
 
 #################################### DRUMS ##########################################
 
@@ -581,29 +594,20 @@ class MayDrumatizer(QWidget):
         else:
             print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
         fn.close()
-        print(self.amplEnvModel.envelopes[0].points)
-        self.ensureInternalMapping()
-
-    def ensureInternalMapping(self):
-        for layer in self.layerModel.layers:
-            for env in self.amplEnvModel.envelopes:
-                if env._hash == layer.amplEnv._hash:
-                    layer.adjust(amplEnv = env)
-                    break
-            for env in self.freqEnvModel.envelopes:
-                if env._hash == layer.freqEnv._hash:
-                    layer.adjust(freqEnv = env)
-                    break
-            for env in self.distEnvModel.envelopes:
-                if env._hash == layer.distEnv._hash:
-                    layer.adjust(distEnv = env)
-                    break
 
 
     def drumRender(self):
-        drumatizeL, drumatizeR, envFunc = Drumatize(self.currentDrum().layers).drumatize()
-        sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
-        self.shaderCreated.emit(sourceShader)
+        self.drumatizeLayers(self.currentDrum().layers)
+
+
+    def updateDrumAmplEnvs(self):
+        self.currentDrum().adjust(amplEnvs = self.amplEnvModel.envelopes)
+
+    def updateDrumFreqEnvs(self):
+        self.currentDrum().adjust(freqEnvs = self.freqEnvModel.envelopes)
+
+    def updateDrumDistEnvs(self):
+        self.currentDrum().adjust(distEnvs = self.distEnvModel.envelopes)
 
 ##################################### LAYERS ########################################
 
@@ -616,26 +620,50 @@ class MayDrumatizer(QWidget):
         except IndexError:
             return None
 
+    def layerAmplEnv(self, layer):
+        if layer is None:
+            return None
+        else:
+            return self.amplEnvModel.envOfHash(layer.amplEnvHash)
+
+    def currentLayerAmplEnv(self):
+        return self.layerAmplEnv(self.currentLayer())
+
+    def layerFreqEnv(self, layer):
+        if layer is None:
+            return None
+        else:
+            return self.freqEnvModel.envOfHash(layer.freqEnvHash)
+
+    def currentLayerFreqEnv(self):
+        return self.layerFreqEnv(self.currentLayer())
+
+    def layerDistEnv(self, layer):
+        if layer is None:
+            return None
+        else:
+            return self.distEnvModel.envOfHash(layer.distEnvHash)
+
+    def currentLayerDistEnv(self):
+        return self.layerDistEnv(self.currentLayer())
+
     def layerLoad(self, current = None, previous = None):
         if current is None:
             current = self.layerList.currentIndex()
         layer = self.layerModel.layers[current.row()]
         self.layerEditorName.setText(layer.name)
         self.layerEditorType.setCurrentText(layer.type)
-        self.layerChooseAmplEnvList.setCurrentText(layer.amplEnv.name)
-        self.layerChooseFreqEnvList.setCurrentText(layer.freqEnv.name)
-        self.layerChooseDistEnvList.setCurrentText(layer.distEnv.name)
+        self.layerChooseAmplEnvList.setCurrentText(self.layerAmplEnv(layer).name)
+        self.layerChooseFreqEnvList.setCurrentText(self.layerFreqEnv(layer).name)
+        self.layerChooseDistEnvList.setCurrentText(self.layerDistEnv(layer).name)
         self.layerChooseDistOff.setChecked(layer.distOff)
         self.layerEditorVolumeSlider.setValue(layer.volume)
         self.layerMenuMuteBox.setChecked(layer.mute)
         self.layerEditorDetuneSlider.setValue(layer.detune)
         self.layerEditorStereoDelaySlider.setValue(layer.stereodelay)
 
-        self.amplEnvMenu_TryExpFitChkBox.setChecked(layer.amplEnv.parameters['tryExpFit'])
-        self.freqEnvMenu_UsePolynomialChkBox.setChecked(layer.freqEnv.parameters['usePolynomial'])
-#        self.amplEnvLoad(current = self.amplEnvModel.indexOf(layer.amplEnv))
-#        self.freqEnvLoad(current = self.freqEnvModel.indexOf(layer.freqEnv))
-#        self.distEnvLoad(current = self.distEnvModel.indexOf(layer.distEnv))
+        self.amplEnvMenu_TryExpFitChkBox.setChecked(self.layerAmplEnv(layer).parameters['tryExpFit'])
+        self.freqEnvMenu_UsePolynomialChkBox.setChecked(self.layerFreqEnv(layer).parameters['usePolynomial'])
 
         self.distMenuEdit_PhaseModOff.setChecked(not layer.phasemodOff)
         self.distMenuEdit_PhaseModAmt.setValue(layer.phasemodAmt)
@@ -690,17 +718,20 @@ class MayDrumatizer(QWidget):
 
     def layerRenderSolo(self):
         soloLayer = [self.currentLayer()]
+        keepMute = soloLayer[0].mute
+        soloLayer[0].mute = False
+
+        # we might also need the phaseMod layer, if given - but make sure it's muted
         needPhasemodLayer = (not self.currentLayer().phasemodOff and self.currentLayer().phasemodSrcHash != self.currentLayer()._hash)
-        # we also need the phaseMod layer, if given - but make sure it's muted
         if needPhasemodLayer:
             soloLayer.append(self.layerModel.layerOfHash(self.currentLayer().phasemodSrcHash))
             keepPhaseModSrcMute = soloLayer[-1].mute
             soloLayer[-1].mute = True
 
-        drumatizeL, drumatizeR, envFunc = Drumatize(soloLayer).drumatize()
-        sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
-        self.shaderCreated.emit(sourceShader)
+        self.drumatizeLayers(soloLayer)
 
+        # restore mute settings
+        soloLayer[0].mute = keepMute
         if needPhasemodLayer:
             soloLayer[-1].mute = keepPhaseModSrcMute
 
@@ -825,7 +856,7 @@ class MayDrumatizer(QWidget):
 
     def amplEnvSelectIndex(self, index):
         self.amplEnvList.selectionModel().setCurrentIndex(self.amplEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
-        self.currentLayer().amplEnv = self.currentAmplEnv()
+        self.currentLayer().amplEnvHash = self.currentAmplEnv()._hash
 
     def amplEnvInsertAndSelect(self, envelope, position = None):
         self.amplEnvModel.insertNew(envelope, position)
@@ -910,7 +941,7 @@ class MayDrumatizer(QWidget):
 
     def freqEnvSelectIndex(self, index):
         self.freqEnvList.selectionModel().setCurrentIndex(self.freqEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
-        self.currentLayer().freqEnv = self.currentFreqEnv()
+        self.currentLayer().freqEnvHash = self.currentFreqEnv()._hash
 
     def freqEnvInsertAndSelect(self, envelope, position = None):
         self.freqEnvModel.insertNew(envelope, position)
@@ -994,7 +1025,7 @@ class MayDrumatizer(QWidget):
 
     def distEnvSelectIndex(self, index):
         self.distEnvList.selectionModel().setCurrentIndex(self.distEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
-        self.currentLayer().distEnv = self.currentDistEnv()
+        self.currentLayer().distEnvHash = self.currentDistEnv()._hash
 
     def distEnvInsertAndSelect(self, envelope, position = None):
         self.distEnvModel.insertNew(envelope, position)

@@ -148,6 +148,6 @@ class DrumEncoder(json.JSONEncoder):
             drum.amplEnvs = json.loads(dict['amplEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.freqEnvs = json.loads(dict['freqEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.distEnvs = json.loads(dict['distEnvs'], object_hook = EnvelopeEncoder.decode)
-            drum.layers = json.loads(dict['layers'], object_hook=LayerEncoder.decode)
+            drum.layers = json.loads(dict['layers'], object_hook = LayerEncoder.decode)
             return drum
         return dict

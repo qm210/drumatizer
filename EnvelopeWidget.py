@@ -165,7 +165,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
             valueOffset = self.qrect.bottom() - self.qrect.height() * self.AXIS_BMARGIN
             value = self.minValue + (coordY - valueOffset) / valueFactor
             # TODO: something weird happens in this case with rounding the value to minValue, close to zero... wtf??
-        return round(max(time, self.minTime), 2), round(value if value > self.minValue else self.minValue, 2)
+        return round(max(time, self.minTime), 3), round(value if value > self.minValue else self.minValue, 3)
 
 
     def findNextNeighbor(self, coordX, coordY):

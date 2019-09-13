@@ -54,7 +54,8 @@ class SettingsDialog(QtWidgets.QDialog):
         self.editSinglePointValue.setDecimals(3)
         self.editSinglePointValue.setRange(1e-3, 2e4)
         self.editSinglePointValue.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
-        self.editSinglePointValue.hide()
+        if envelope.pointNumber() > 1:
+            self.editSinglePointValue.hide()
         self.layout.addWidget(self.editSinglePointValue)
         self.editPointNumber.valueChanged.connect(self.toggleSinglePoint)
 
@@ -62,7 +63,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.layout.addItem(self.verticalSpacer)
 
         # TODO: "What to randomize..?" Times? Values? Both?
-        # TODO: change "maxTime", "maxValue"..?
+        # TODO: change "maxTime", "maxValue"..? - use Strg+T for now
 
         self.assignToLayerChkBox = QtWidgets.QCheckBox('Assign to current layer now', self)
         self.layout.addWidget(self.assignToLayerChkBox)

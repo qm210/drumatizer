@@ -171,6 +171,19 @@ class EnvelopeModel(QAbstractListModel):
     def nameList(self):
         return [envelope.name for envelope in self.envelopes]
 
+    def hashList(self):
+        return [envelope._hash for envelope in self.envelopes]
+
+    def indexOfHash(self, _hash):
+        try:
+            return self.hashList().index(_hash)
+        except ValueError:
+            return None
+
+    def envOfHash(self, _hash):
+        index = self.indexOfHash(_hash)
+        return self.envelopes[index] if index is not None else None
+
 
 defaultAmplEnvelope = Envelope(
     name = '(default)',
@@ -235,11 +248,6 @@ class EnvelopeEncoder(json.JSONEncoder):
             return env
         else:
             return dict
-
-    @classmethod
-    def decodeList(self, list):
-        print('decodeList', list)
-        return [self.decode(env) for env in list if '__drumatizeEnvelope__' in env]
 
     @classmethod
     def ensureParameterCompatibility(self, parameters, type):
