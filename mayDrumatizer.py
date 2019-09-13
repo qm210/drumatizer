@@ -581,6 +581,7 @@ class MayDrumatizer(QWidget):
         else:
             print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
         fn.close()
+        print(self.amplEnvModel.envelopes[0].points)
         self.ensureInternalMapping()
 
     def ensureInternalMapping(self):

@@ -14,7 +14,7 @@ class Layer:
     unitDetune = 1e-3
     unitStereoDelay = 1e-5
 
-    def __init__(self, name = None, amplEnv = None, freqEnv = None, distEnv = None, _hash = None):
+    def __init__(self, amplEnv, freqEnv, distEnv, name = None, _hash = None):
         self.name = name or self.talkSomeTeam210Shit()
         self.type = layerTypes[0]
         self.amplEnv = amplEnv
@@ -34,7 +34,7 @@ class Layer:
 
     def __str__(self):
         volumeRepr = '{}%'.format(self.volume) if not self.mute else 'MUTED'
-        return '{} ({} × {} × {})'.format(self.name, volumeRepr, self.type, self.amplEnv.name)
+        return f'{self.name} ({volumeRepr} × {self.type} × {self.amplEnv.name})'
 
     def adjust(self, **args):
         if 'name' in args:
@@ -196,7 +196,7 @@ class LayerEncoder(json.JSONEncoder):
     # pylint: disable=method-hidden
     def default(self, obj):
         if isinstance(obj, Layer):
-            return {
+            layerObj = {
                 '__drumatizeLayer__': obj._hash,
                 'name': obj.name,
                 'type': obj.type,
@@ -214,6 +214,7 @@ class LayerEncoder(json.JSONEncoder):
                 'phasemodAmt': obj.phasemodAmt,
                 'phasemodSrcHash': obj.phasemodSrcHash
             }
+            return layerObj
         else:
             return super().default(obj)
 

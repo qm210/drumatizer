@@ -84,7 +84,7 @@ class EnvelopePoint:
                 self.time = decodePoint['time']
                 self.value = decodePoint['value']
                 self.fixedTime = decodePoint['fixedTime']
-                self.fixedvalue = decodePoint['fixedValue']
+                self.fixedValue = decodePoint['fixedValue']
                 self.name = decodePoint['name']
             except:
                 print("EnvelopePoint(decodePoint = ...) was passed something incompatible..!")
@@ -209,13 +209,14 @@ class EnvelopeEncoder(json.JSONEncoder):
     # pylint: disable=method-hidden
     def default(self, obj):
         if isinstance(obj, Envelope):
-            return {
+            envObj = {
                 '__drumatizeEnvelope__': obj._hash,
                 'name': obj.name,
                 'type': obj.type,
                 'points': json.dumps(obj.points, default = (lambda point: point.__dict__)),
                 'parameters': obj.parameters
             }
+            return envObj
         else:
             return super().default(obj)
 
@@ -224,13 +225,14 @@ class EnvelopeEncoder(json.JSONEncoder):
         if '__drumatizeEnvelope__' in dict:
             points = [EnvelopePoint(decodePoint = p) for p in json.loads(dict['points'])]
             parameters = self.ensureParameterCompatibility(dict['parameters'], dict['type'])
-            return Envelope(
+            env = Envelope(
                 name = dict['name'],
                 type = dict['type'],
                 points = points,
                 parameters = parameters,
                 _hash = dict['__drumatizeEnvelope__'],
             )
+            return env
         else:
             return dict
 

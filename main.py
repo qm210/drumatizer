@@ -27,13 +27,18 @@ class MainWindow(QWidget):
         self.initState()
         self.initUI()
         self.show()
+        self.drumWidget.setFocus()
 
         self.timerAutosave = QTimer(self)
         self.timerAutosave.timeout.connect(self.autosave)
         self.timerAutosave.start(self.autosaveInterval)
         self.renderWidget.shouldsave.connect(self.autosave)
 
-        self.autoload()
+        # TODO: organize command line arguments
+        if '-init' in sys.argv:
+            self.drumWidget.initData()
+        else:
+            self.autoload()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
