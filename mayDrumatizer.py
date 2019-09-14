@@ -246,6 +246,11 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit_LofiBits.setValue(2**13)
         self.distMenuEdit_LofiBits.setSingleStep(64)
         self.distMenuEdit_LofiBits.setSuffix(' bits')
+        self.distMenuEdit_SaturationFactor = QDoubleSpinBox()
+        self.distMenuEdit_SaturationFactor.setRange(0.1, 99.9)
+        self.distMenuEdit_SaturationFactor.setValue(2.10)
+        self.distMenuEdit_SaturationFactor.setSingleStep(0.1)
+        self.distMenuEdit_SaturationFactor.setPrefix('x ')
         self.distMenuEdit_NA = QLineEdit()
         self.distMenuEdit_NA.setText('N/A')
         self.distMenuEdit_NA.setEnabled(False)
@@ -255,6 +260,7 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit.addWidget(self.distMenuEdit_OverdriveMaximum)
         self.distMenuEdit.addWidget(self.distMenuEdit_WaveshapeParts)
         self.distMenuEdit.addWidget(self.distMenuEdit_LofiBits)
+        self.distMenuEdit.addWidget(self.distMenuEdit_SaturationFactor)
         self.distMenuEdit.addWidget(self.distMenuEdit_NA)
 
         self.distMenuEdit_PhaseModOff = QCheckBox('PhaseMod:')
@@ -310,8 +316,6 @@ class MayDrumatizer(QWidget):
             self.maxValue['frequency'] = maxValue
             self.maxValue['distortion'] = maxValue
 
-        print(self.maxValue)
-
         self.amplEnvWidget.setDimensions(maxTime = self.maxTime['amplitude'], minValue = self.minValue['amplitude'], maxValue = self.maxValue['amplitude'])
         self.freqEnvWidget.setDimensions(maxTime = self.maxTime['frequency'], minValue = self.minValue['frequency'], maxValue = self.maxValue['frequency'], logValue = True)
         self.distEnvWidget.setDimensions(maxTime = self.maxTime['distortion'], minValue = self.minValue['distortion'], maxValue = self.maxValue['distortion'])
@@ -361,6 +365,7 @@ class MayDrumatizer(QWidget):
         self.distMenuEdit_OverdriveMaximum.valueChanged.connect(self.adjustDistEnvWidgetMaximum)
         self.distMenuEdit_WaveshapeParts.valueChanged.connect(partial(self.updateDistParams, choice=None))
         self.distMenuEdit_LofiBits.valueChanged.connect(partial(self.updateDistParams, choice=None))
+        self.distMenuEdit_SaturationFactor.valueChanged.connect(partial(self.updateDistParams, choice=None))
         self.distMenuEdit_PhaseModOff.stateChanged.connect(self.layerSetPhaseMod)
         self.distMenuEdit_PhaseModAmt.valueChanged.connect(self.layerSetPhaseModAmt)
         self.distMenuEdit_PhaseModSource.currentIndexChanged.connect(self.layerSetPhaseModSrc)
@@ -541,12 +546,16 @@ class MayDrumatizer(QWidget):
         if len(pars) > 2:
             self.currentDrum().adjust(iLike = int(pars[2]))
 
-    def drumExport(self, name = None):
+    def drumExport(self, name = None, useCurrentDrumName = False):
         if name is None:
-            nameSuggestion = self.currentDrum().name.replace(' ', '_').replace('?', '')
-            name, _ = QFileDialog.getSaveFileName(self.parent, 'Export', nameSuggestion, 'Single *.drum or whole *.drumset files(*.drum *.drumset)')
-            if name == '':
-                return
+            if useCurrentDrumName:
+                name = self.currentDrum().name + '.drum'
+                print(f'Export to {name}')
+            else:
+                nameSuggestion = self.currentDrum().name.replace(' ', '_').replace('?', '')
+                name, _ = QFileDialog.getSaveFileName(self.parent, 'Export', nameSuggestion, 'Single *.drum or whole *.drumset files(*.drum *.drumset)')
+                if name == '':
+                    return
         name = path.basename(name)
         extension = name.split('.')[-1]
         actualName = '.'.join(name.split('.')[0:-1])
@@ -796,6 +805,10 @@ class MayDrumatizer(QWidget):
             self.distMenuEdit_LofiBits.setValue(distParam)
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_LofiBits)
             self.adjustDistEnvWidgetMaximum(2)
+        elif choice == 'Saturation':
+            self.distMenuEdit_SaturationFactor.setValue(distParam)
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_SaturationFactor)
+            self.adjustDistEnvWidgetMaximum(10)
         else:
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
 
@@ -815,6 +828,10 @@ class MayDrumatizer(QWidget):
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_LofiBits)
             self.adjustDistEnvWidgetMaximum(2)
             distParam = self.distMenuEdit_LofiBits.value()
+        elif choice == 'Saturation':
+            self.distMenuEdit.setCurrentWidget(self.distMenuEdit_SaturationFactor)
+            self.adjustDistEnvWidgetMaximum(10)
+            distParam = self.distMenuEdit_SaturationFactor.value()
         else:
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
             distParam = None

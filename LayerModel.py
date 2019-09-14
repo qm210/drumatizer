@@ -5,7 +5,7 @@ import json
 from EnvelopeModel import EnvelopeEncoder
 
 layerTypes = ['SIN', 'SAW', 'SQU', 'TRI', 'WHTNS', 'PRLNS']
-distTypes = ['Overdrive', 'Waveshape', 'Lo-Fi']
+distTypes = ['Overdrive', 'Waveshape', 'Lo-Fi', 'Saturation']
 
 
 class Layer:
