@@ -28,7 +28,7 @@ import datetime
 from numpy import *
 from struct import *
 
-class SFXGLWidget(QOpenGLWidget,QObject):
+class SFXGLWidget(QOpenGLWidget): # ,QObject ?
 
     def __init__(self, parent, samplerate, duration, texsize, moreUniforms = {}):
         QOpenGLWidget.__init__(self, parent)
@@ -56,10 +56,10 @@ class SFXGLWidget(QOpenGLWidget,QObject):
 
         self.framebuffer = glGenFramebuffers(1)
         glBindFramebuffer(GL_FRAMEBUFFER, self.framebuffer)
-        print("Bound buffer.")
+        print("Bound buffer with id", self.framebuffer)
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
-        print("Bound texture with id ", self.texture)
+        print("Bound texture with id", self.texture)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, self.texsize, self.texsize, 0, GL_RGBA, GL_UNSIGNED_BYTE, self.image)
         print("Teximage2D returned.")
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)

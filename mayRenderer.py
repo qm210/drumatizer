@@ -1,10 +1,11 @@
-from PyQt5.QtWidgets import * # pylint: disable=unused-import
+# pylint: disable=unused-import
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, QFile, QFileInfo, QIODevice, QByteArray, QBuffer, QTextStream, pyqtSignal
 from PyQt5.QtMultimedia import QAudioOutput, QAudioFormat, QAudioDeviceInfo, QAudio
 from datetime import datetime
 from random import randint
-import numpy as np
 from scipy.io import wavfile
+import numpy as np
 
 from SFXGLWidget import SFXGLWidget
 
@@ -15,7 +16,7 @@ class MayRenderer(QWidget):
     texsize = 512
     samplerate = 44100
 
-    shaderHeader = '#version 130\n uniform float iTexSize;\n uniform float iBlockOffset;\n uniform float iSampleRate;\n\n'
+    shaderHeader = '#version 130\nuniform float iTexSize;\nuniform float iBlockOffset;\nuniform float iSampleRate;\n\n'
 
     def __init__(self, parent):
         super().__init__()
