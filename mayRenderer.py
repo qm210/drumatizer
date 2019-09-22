@@ -5,13 +5,16 @@ from PyQt5.QtMultimedia import QAudioOutput, QAudioFormat, QAudioDeviceInfo, QAu
 from datetime import datetime
 from random import randint
 from scipy.io import wavfile
+from os import path
+from shutil import copyfile
 import numpy as np
 
 from SFXGLWidget import SFXGLWidget
 
+
 class MayRenderer(QWidget):
 
-    shouldsave = pyqtSignal()
+    shouldSave = pyqtSignal()
 
     texsize = 512
     samplerate = 44100
@@ -36,6 +39,10 @@ class MayRenderer(QWidget):
         self.watchFileName = ''
         self.storeCodeIfNotWatching = ''
 
+        self.useSynDump = False
+        self.synDrumName = ''
+        self.synFileName = ''
+
     def initUI(self):
         self.mainLayout = QVBoxLayout()
         self.codeLayout = QVBoxLayout()
@@ -49,6 +56,26 @@ class MayRenderer(QWidget):
         self.renderGroupLayout.addLayout(self.playbackBar)
         self.renderGroup.setLayout(self.renderGroupLayout)
         self.renderGroup.setObjectName("renderGroup")
+        self.synGroupLayout = QHBoxLayout()
+        self.synGroup = QGroupBox()
+        self.synGroup.setLayout(self.synGroupLayout)
+
+        self.synDumpCheckBox = QCheckBox('Dump as')
+        self.synDrumNameBox = QLineEdit(self)
+        self.synFileNameBox = QLineEdit(self)
+        self.synFileButton = QPushButton('...')
+        self.synGroupLayout.addWidget(self.synDumpCheckBox, 1)
+        self.synGroupLayout.addWidget(self.synDrumNameBox, 2)
+        self.synGroupLayout.addWidget(QLabel('in'), .1)
+        self.synGroupLayout.addWidget(self.synFileNameBox, 5)
+        self.synGroupLayout.addWidget(self.synFileButton, 0.1)
+        self.synDumpCheckBox.stateChanged.connect(self.toggleSynDump)
+        self.synDrumNameBox.setPlaceholderText('drumname')
+        self.synDrumNameBox.textChanged.connect(self.setSynDrumName)
+        self.synFileNameBox.setPlaceholderText('some aMaySyn .syn file')
+        self.synFileNameBox.textChanged.connect(self.setSynFileName)
+        self.synFileButton.setMaximumWidth(40)
+        self.synFileButton.clicked.connect(self.chooseSynFile)
 
         self.codeGroup = QGroupBox()
         self.buttonCopy = QPushButton('↬ Clipboard', self)
@@ -69,6 +96,7 @@ class MayRenderer(QWidget):
         self.watchFileNameBox.setPlaceholderText('use GLSL code file instead of the above editor...')
         self.watchFileNameBox.textChanged.connect(self.setWatchFileName)
         self.buttonWatchFile = QPushButton('...', self)
+        self.buttonWatchFile.setMaximumWidth(40)
         self.buttonWatchFile.clicked.connect(self.chooseWatchFile)
 
         self.renderButton = QPushButton(self)
@@ -119,6 +147,7 @@ class MayRenderer(QWidget):
         self.codeLayout.addLayout(self.codeWatchFileBar)
         self.codeGroup.setLayout(self.codeLayout)
 
+        self.mainLayout.addWidget(self.synGroup)
         self.mainLayout.addWidget(self.codeGroup)
         self.mainLayout.addWidget(self.renderGroup)
 
@@ -173,6 +202,27 @@ class MayRenderer(QWidget):
 #        plainText = self.codeEditor.toPlainText().replace('\t', 4*' ')
 #        self.codeEditor.setPlainText(plainText)
 
+    def toggleSynDump(self, state):
+        self.useSynDump = (state == Qt.Checked)
+        self.shouldSave.emit()
+
+    def chooseSynFile(self):
+        dialogResult, _ = QFileDialog.getSaveFileName(self, 'Choose SYN definition file', '', 'aMaySyn definition files (*.syn);;All files (*)')
+        print(dialogResult)
+        self.synFileNameBox.setText(dialogResult)
+        self.synDumpCheckBox.setCheckState(Qt.Checked)
+        if self.synFileName == '':
+            self.synFileNameBox.setFocus()
+        self.shouldSave.emit()
+
+    def setSynFileName(self):
+        self.synFileName = self.synFileNameBox.text()
+        self.shouldSave.emit()
+
+    def setSynDrumName(self):
+        self.synDrumName = self.synDrumNameBox.text()
+
+
     def toggleWatchFile(self, state):
         if not self.useWatchFile and state == Qt.Checked:
             self.storeCodeIfNotWatching = self.codeEditor.toPlainText()
@@ -190,8 +240,7 @@ class MayRenderer(QWidget):
         print(dialogResult)
         self.watchFileNameBox.setText(dialogResult[0])
         self.watchFileCheckBox.setCheckState(Qt.Checked)
-
-        self.shouldsave.emit()
+        self.shouldSave.emit()
 
     def setWatchFileName(self):
         self.watchFileName = self.watchFileNameBox.text()
@@ -335,3 +384,44 @@ void main()
 
     def setVolume(self):
         self.audiooutput.setVolume(self.playbackVolumeSlider.value() * .01)
+
+    def dumpInSynFile(self, drumatizeL, drumatizeR, envCode):
+        if self.synDrumName == '':
+            print("specify a valid drum name!!")
+            return
+        if self.synFileName == '':
+            print("specify a valid .syn filename!!")
+            return
+        if not path.exists(self.synFileName):
+            open(self.synFileName, 'a').close()
+
+        uniqueEnv = f'_{self.synDrumName}ENV'
+        drumatizeL = drumatizeL.replace('__ENV', uniqueEnv)
+        drumatizeR = drumatizeR.replace('__ENV', uniqueEnv)
+        envCode = envCode.replace('__ENV', uniqueEnv).replace('\n',' ')
+        parLine = f'param include src="{envCode}"\n'
+        synLine = f'maindrum {self.synDrumName} src="{drumatizeL}" srcr="{drumatizeR}"\n'
+        print(parLine, '\n', synLine)
+
+        tmpSynFile = 'tmp.syn'
+        copyfile(self.synFileName, tmpSynFile)
+        parWritten, synWritten = False, False
+        with open(tmpSynFile, 'r') as synFileHandle:
+            synFileLines = synFileHandle.readlines()
+        with open(self.synFileName, 'w') as synFileHandle:
+            for line in synFileLines:
+                parseLine = line.strip('\n').split()
+                if parseLine[0:2] == ['maindrum', self.synDrumName]:
+                    synFileHandle.write(synLine)
+                    synWritten = True
+                elif parseLine[0:2] == ['param', 'include'] and line.find(uniqueEnv) != -1:
+                    synFileHandle.write(parLine)
+                    parWritten = True
+                else:
+                    synFileHandle.write(line)
+            if not parWritten:
+                synFileHandle.write('\n' + parLine)
+            if not synWritten:
+                synFileHandle.write('\n' + synLine)
+            synFileHandle.close()
+

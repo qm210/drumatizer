@@ -24,6 +24,7 @@ from Drumatizer import Drumatizer
 class MayDrumatizer(QWidget):
 
     shaderCreated = pyqtSignal(str)
+    synDrumCreated = pyqtSignal(str, str, str)
 
     def __init__(self, parent):
         super().__init__()
@@ -477,6 +478,7 @@ class MayDrumatizer(QWidget):
         drumatizeL, drumatizeR, envFunc = drumatizer.drumatize()
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
         self.shaderCreated.emit(sourceShader)
+        self.synDrumCreated.emit(drumatizeL, drumatizeR, envFunc)
 
 
 #################################### DRUMS ##########################################

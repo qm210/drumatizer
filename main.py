@@ -32,7 +32,6 @@ class MainWindow(QWidget):
         self.timerAutosave = QTimer(self)
         self.timerAutosave.timeout.connect(self.autosave)
         self.timerAutosave.start(self.autosaveInterval)
-        self.renderWidget.shouldsave.connect(self.autosave)
 
         # TODO: organize command line arguments
         if '-init' in sys.argv:
@@ -96,8 +95,11 @@ class MainWindow(QWidget):
 
     def initUI(self):
         self.drumWidget = MayDrumatizer(self)
-        self.renderWidget = MayRenderer(self)
         self.drumWidget.shaderCreated.connect(self.sendShaderToRenderer)
+        self.drumWidget.synDrumCreated.connect(self.sendDrumatizeDetailsToRenderer)
+
+        self.renderWidget = MayRenderer(self)
+        self.renderWidget.shouldSave.connect(self.autosave)
 
         self.initLayouts()
         self.setStyleSheet(mayStyle)
@@ -123,6 +125,9 @@ class MainWindow(QWidget):
     def sendShaderToRenderer(self, shaderSource):
         self.renderWidget.paste(shaderSource)
         self.renderWidget.renderShaderAndPlay()
+
+    def sendDrumatizeDetailsToRenderer(self, dL, dR, envCode):
+        self.renderWidget.dumpInSynFile(dL, dR, envCode)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

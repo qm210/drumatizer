@@ -65,6 +65,7 @@ vec2 mainSynth(float time)
     float dL = 0.;
     float dR = 0.;
     float amaydrumL, amaydrumR, _t, env;
+    float vel = 1.;
     amaydrumL = 0.;
     amaydrumR = 0.;
     float t_beat = 4. * SPB;

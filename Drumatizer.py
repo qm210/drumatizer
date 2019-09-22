@@ -104,8 +104,8 @@ class Drumatizer:
         for amplEnvHash in glslAmplEnvs:
             grouped_L = groupedResultsWithoutAmplEnv_L[amplEnvHash]
             grouped_R = groupedResultsWithoutAmplEnv_R[amplEnvHash]
-            groupResults_L.append('{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_L)) if grouped_L else '0.')
-            groupResults_R.append('{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_R)) if grouped_R else '0.')
+            groupResults_L.append('vel*{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_L)) if grouped_L else '0.')
+            groupResults_R.append('vel*{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_R)) if grouped_R else '0.')
 
         resultL = '+'.join(groupResults_L).replace('_ENVTIME', '_t')
         resultR = '+'.join(groupResults_R).replace('_ENVTIME', '_t')
@@ -178,7 +178,7 @@ class Drumatizer:
         elif len(env.points) == 1:
             return env.points[0].value
 
-        separateFunction = f'env{self.separateFunctionCount}'
+        separateFunction = f'__ENV{self.separateFunctionCount}'
         self.separateFunctionCount += 1
 
         term = ''

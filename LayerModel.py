@@ -92,7 +92,10 @@ class Layer:
             'HEY BROSKI; WHAT\'S UP, BROSKI??',
             'you have to be in the lake to be the lake',
             'They are smoking beer inside',
-            'Style is not a crime'
+            'Style is not a crime',
+            'Vote Leave Good Taste',
+            'There is no off switch on the genius switch',
+            'I think you are from Wuppertal',
         ]
         sentences = [s for s in allSentences if s not in skip]
         if sentences:
