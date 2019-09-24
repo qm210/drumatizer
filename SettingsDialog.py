@@ -50,9 +50,9 @@ class SettingsDialog(QtWidgets.QDialog):
 
         self.editSinglePointValue = QtWidgets.QDoubleSpinBox(self)
         self.editSinglePointValue.setPrefix('const value = ')
-        self.editSinglePointValue.setValue(envelope.points[0].value)
         self.editSinglePointValue.setDecimals(3)
         self.editSinglePointValue.setRange(1e-3, 2e4)
+        self.editSinglePointValue.setValue(envelope.points[0].value)
         self.editSinglePointValue.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
         if envelope.pointNumber() > 1:
             self.editSinglePointValue.hide()

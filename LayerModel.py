@@ -115,6 +115,7 @@ class LayerModel(QAbstractListModel):
         super(LayerModel, self).__init__(*args, **kwargs)
         self.layers = layers or []
         self.newestIndex = len(self.layers) - 1
+        self.justAddedNew = False
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
@@ -143,7 +144,8 @@ class LayerModel(QAbstractListModel):
         self.layers = layers
         self.emitAllChanged()
 
-    def insertNew(self, layer, position = None):
+    def insertNew(self, layer, position = None, addNew = True):
+        self.justAddedNew = addNew
         if position is not None:
             self.layers.insert(position, layer)
             self.newestIndex = position

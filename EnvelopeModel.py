@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QAbstractListModel, Qt
+from PyQt5.QtCore import QAbstractListModel, Qt, QModelIndex
 from copy import deepcopy
 from math import pi
 from random import uniform
@@ -16,6 +16,11 @@ class Envelope:
 
     def __str__(self):
         return self.name
+
+    def deriveCopy(self):
+        newEnvelope = deepcopy(self)
+        newEnvelope._hash = hash(newEnvelope)
+        return newEnvelope
 
     def adjust(self, name = None, points = None, parameters = None, pointNumber = None, singlePointValue = None):
         if name is not None:
@@ -130,15 +135,16 @@ class EnvelopeModel(QAbstractListModel):
         self.dataChanged.emit(self.createIndex(0,0), self.createIndex(self.rowCount(),0))
 
     def clear(self):
-        self.envelopes = []
-        self.emitAllChanged()
+        self.clearAndRefill([])
 
     def clearAndRefill(self, envelopes):
+        self.beginRemoveRows(QModelIndex(), 0, self.rowCount())
         self.envelopes = [deepcopy(env) for env in envelopes]
+        self.endRemoveRows()
         self.emitAllChanged()
 
     def insertNew(self, envelope, position = None):
-        newEnvelope = deepcopy(envelope)
+        newEnvelope = envelope.deriveCopy()
         if position is not None:
             self.envelopes.insert(position, newEnvelope)
             self.newestIndex = position
@@ -161,6 +167,7 @@ class EnvelopeModel(QAbstractListModel):
     def adjust(self, numericalIndex, name = None, points = None, parameters = None, pointNumber = None):
         if self.envelopes:
             self.envelopes[numericalIndex].adjust(name, points, pointNumber, parameters)
+            self.dataChanged.emit(self.createIndex(numericalIndex,0), self.createIndex(numericalIndex,0))
 
     def adjustNewest(self, **args):
         self.adjust(self.newestIndex, **args)

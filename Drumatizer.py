@@ -18,11 +18,13 @@ def GLstr(s):
 
 class Drumatizer:
 
-    def __init__(self, layers, amplEnvs, freqEnvs, distEnvs):
+    def __init__(self, layers, amplEnvs, freqEnvs, distEnvs, postprocPrefix, postprocSuffix):
         self.layers = layers
         self.amplEnvs = amplEnvs
         self.freqEnvs = freqEnvs
         self.distEnvs = distEnvs
+        self.postprocPrefix = postprocPrefix
+        self.postprocSuffix = postprocSuffix
 
         self.separateFunctionCount = 0
         self.separateFunctionCode = ''
@@ -104,11 +106,11 @@ class Drumatizer:
         for amplEnvHash in glslAmplEnvs:
             grouped_L = groupedResultsWithoutAmplEnv_L[amplEnvHash]
             grouped_R = groupedResultsWithoutAmplEnv_R[amplEnvHash]
-            groupResults_L.append('vel*{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_L)) if grouped_L else '0.')
-            groupResults_R.append('vel*{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_R)) if grouped_R else '0.')
+            groupResults_L.append('{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_L)) if grouped_L else '0.')
+            groupResults_R.append('{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_R)) if grouped_R else '0.')
 
-        resultL = '+'.join(groupResults_L).replace('_ENVTIME', '_t')
-        resultR = '+'.join(groupResults_R).replace('_ENVTIME', '_t')
+        resultL = self.postprocPrefix + '+'.join(groupResults_L).replace('_ENVTIME', '_t') + self.postprocSuffix
+        resultR = self.postprocPrefix + '+'.join(groupResults_R).replace('_ENVTIME', '_t') + self.postprocSuffix
         envFuncCode = self.separateFunctionCode.replace('_ENVTIME', 't')
 
         return resultL, resultR, envFuncCode
@@ -159,15 +161,16 @@ class Drumatizer:
                 return f'(.5*{func}({phaseArgs})+.5*{func}({detuneFactor}*{phaseArgs}))'
 
     def applyDistortion(self, layerClean, distType, distParam, distEnv):
+        distParam = GLfloat(round(distParam, 5))
         if distType == 'Overdrive':
             return f'clip({distEnv}*{layerClean})'
         elif distType == 'Waveshape':
-            return f'sinshape({layerClean}, {distEnv}, {GLfloat(distParam)})'
+            return f'sinshape({layerClean}, {distEnv}, {distParam})'
         elif distType == 'Lo-Fi':
-            distEnv = f'({GLfloat(distParam)}*{distEnv})'
+            distEnv = f'({distParam}*{distEnv})'
             return layerClean.replace('_PROGTIME',f'lofi(_PROGTIME,{distEnv})')
         elif distType == 'Saturation':
-            return f's_atan({GLfloat(distParam)}*{distEnv}*{layerClean})'
+            return f's_atan({distParam}*{distEnv}*{layerClean})'
         else:
             print(f'Distortion of type \'{distType}\' does not exist!')
             return layerClean

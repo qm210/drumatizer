@@ -33,7 +33,7 @@ class MayRenderer(QWidget):
 
     def initState(self):
         self.playing = False
-        self.initVolume = 0.3
+        self.initVolume = 1
 
         self.useWatchFile = False
         self.watchFileName = ''
@@ -221,6 +221,12 @@ class MayRenderer(QWidget):
 
     def setSynDrumName(self):
         self.synDrumName = self.synDrumNameBox.text()
+        self.shouldSave.emit()
+
+    def setSynDumpParameters(self, useSynDump, synFileName, synDrumName):
+        self.synDumpCheckBox.setChecked(useSynDump)
+        self.synFileNameBox.setText(synFileName)
+        self.synDrumNameBox.setText(synDrumName)
 
 
     def toggleWatchFile(self, state):

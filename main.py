@@ -22,7 +22,7 @@ class MainWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('QoodMood')
+        self.setWindowTitle('QMs Drumatizer')
         self.setGeometry(300,0,1600,1000)
         self.initState()
         self.initUI()
@@ -42,9 +42,11 @@ class MainWindow(QWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             self.close()
-            #QApplication.quit()
 
-        # CTRL pressed
+        elif event.key() == Qt.Key_F1:
+            self.drumWidget.debugOutput()
+
+
         if event.modifiers() & Qt.ControlModifier:
 
             if event.key() == Qt.Key_Return:
@@ -97,6 +99,7 @@ class MainWindow(QWidget):
         self.drumWidget = MayDrumatizer(self)
         self.drumWidget.shaderCreated.connect(self.sendShaderToRenderer)
         self.drumWidget.synDrumCreated.connect(self.sendDrumatizeDetailsToRenderer)
+        self.drumWidget.selectDrum.connect(self.sendSynDumpParametersToRenderer)
 
         self.renderWidget = MayRenderer(self)
         self.renderWidget.shouldSave.connect(self.autosave)
@@ -118,6 +121,7 @@ class MainWindow(QWidget):
 
     def autosave(self):
         try:
+            self.drumWidget.setSynDumpParameters(self.renderWidget.useSynDump, self.renderWidget.synFileName, self.renderWidget.synDrumName)
             self.drumWidget.drumExport(name = self.autosave_file)
         except Exception as ex:
             print('Autosave failed...', ex)
@@ -128,6 +132,9 @@ class MainWindow(QWidget):
 
     def sendDrumatizeDetailsToRenderer(self, dL, dR, envCode):
         self.renderWidget.dumpInSynFile(dL, dR, envCode)
+
+    def sendSynDumpParametersToRenderer(self):
+        self.renderWidget.setSynDumpParameters(*(self.drumWidget.getSynDumpParameters()))
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

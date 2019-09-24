@@ -9,17 +9,25 @@ class Drum:
     def __init__(self, name = None, type = None):
         self.name = name or 'are you DRUMATIZED yet?'
         # idea: preset list will be grouped by type
-        self.type = type or 'Asskick'
+        self.type = type or 'undefined'
         self.iLike = 0
         # each drum holds an arbitrary amount of layers and envelopes of each kind
         self.layers = []
         self.amplEnvs = []
         self.freqEnvs = []
         self.distEnvs = []
+        self.postprocPrefix = 'vel*('
+        self.postprocSuffix = ')'
         # '...' menu: enter name, type, option to purge unused envelopes, also the 'drum awesomeness', for the ranking ;)
+        self.useSynDump = False
+        self.synFileName = None
+        self.synDrumName = None
 
     def __str__(self):
-        return self.name # '{} -- {}'.format(self.type.upper(), self.name)
+        if self.useSynDump:
+            return f"{self.name} ({self.synDrumName})"
+        else:
+            return self.name # '{} -- {}'.format(self.type.upper(), self.name)
 
     def adjust(self, **args):
         if 'name' in args:
@@ -36,6 +44,16 @@ class Drum:
             self.freqEnvs = args['freqEnvs']
         if 'distEnvs' in args:
             self.distEnvs = args['distEnvs']
+        if 'postprocPrefix' in args:
+            self.postprocPrefix = args['postprocPrefix']
+        if 'postprocSuffix' in args:
+            self.postprocSuffix = args['postprocSuffix']
+        if 'useSynDump' in args:
+            self.useSynDump = args['useSynDump']
+        if 'synFileName' in args:
+            self.synFileName = args['synFileName']
+        if 'synDrumName' in args:
+            self.synDrumName = args['synDrumName']
 
     def addLayer(self, layer):
         self.layers.append(layer)
@@ -136,6 +154,11 @@ class DrumEncoder(json.JSONEncoder):
                 'amplEnvs': json.dumps(obj.amplEnvs, cls = EnvelopeEncoder),
                 'freqEnvs': json.dumps(obj.freqEnvs, cls = EnvelopeEncoder),
                 'distEnvs': json.dumps(obj.distEnvs, cls = EnvelopeEncoder),
+                'postprocPrefix': obj.postprocPrefix,
+                'postprocSuffix': obj.postprocSuffix,
+                'useSynDump': obj.useSynDump,
+                'synFileName': obj.synFileName,
+                'synDrumName': obj.synDrumName,
             }
         else:
             return super().default(obj)
@@ -143,11 +166,16 @@ class DrumEncoder(json.JSONEncoder):
     @classmethod
     def decode(self, dict):
         if '__drumatizeDrum__' in dict:
-            drum = Drum(name = dict['name'], type = dict['type'])
-            drum.iLike = dict['iLike']
+            drum = Drum(name = dict.get('name', 'unnamed'), type = dict.get('type', 'undefined'))
+            drum.iLike = dict.get('iLike', 0)
             drum.amplEnvs = json.loads(dict['amplEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.freqEnvs = json.loads(dict['freqEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.distEnvs = json.loads(dict['distEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.layers = json.loads(dict['layers'], object_hook = LayerEncoder.decode)
+            drum.postprocPrefix = dict.get('postprocPrefix', 'vel*(')
+            drum.postprocSuffix = dict.get('postprocSuffix', ')')
+            drum.useSynDump = dict.get('useSynDump', False)
+            drum.synFileName = dict.get('synFileName', None)
+            drum.synDrumName = dict.get('synDrumName', None)
             return drum
         return dict
