@@ -161,7 +161,7 @@ class Drumatizer:
                 return f'(.5*{func}({phaseArgs})+.5*{func}({detuneFactor}*{phaseArgs}))'
 
     def applyDistortion(self, layerClean, distType, distParam, distEnv):
-        distParam = GLfloat(round(distParam, 5))
+        distParam = GLfloat(round(distParam, 5)) if distParam is not None else None
         if distType == 'Overdrive':
             return f'clip({distEnv}*{layerClean})'
         elif distType == 'Waveshape':

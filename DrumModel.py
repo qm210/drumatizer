@@ -11,6 +11,7 @@ class Drum:
         # idea: preset list will be grouped by type
         self.type = type or 'undefined'
         self.iLike = 0
+        self.releaseTime = 0
         # each drum holds an arbitrary amount of layers and envelopes of each kind
         self.layers = []
         self.amplEnvs = []
@@ -36,6 +37,8 @@ class Drum:
             self.type = args['type']
         if 'iLike' in args:
             self.iLike = args['iLike']
+        if 'releaseTime' in args:
+            self.releaseTime = args['releaseTime']
         if 'layers' in args:
             self.layers = args['layers']
         if 'amplEnvs' in args:
@@ -150,6 +153,7 @@ class DrumEncoder(json.JSONEncoder):
                 'name': obj.name,
                 'type': obj.type,
                 'iLike': obj.iLike,
+                'releaseTime': obj.releaseTime,
                 'layers': json.dumps(obj.layers, cls = LayerEncoder),
                 'amplEnvs': json.dumps(obj.amplEnvs, cls = EnvelopeEncoder),
                 'freqEnvs': json.dumps(obj.freqEnvs, cls = EnvelopeEncoder),
@@ -168,6 +172,7 @@ class DrumEncoder(json.JSONEncoder):
         if '__drumatizeDrum__' in dict:
             drum = Drum(name = dict.get('name', 'unnamed'), type = dict.get('type', 'undefined'))
             drum.iLike = dict.get('iLike', 0)
+            drum.releaseTime = dict.get('releaseTime', 0)
             drum.amplEnvs = json.loads(dict['amplEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.freqEnvs = json.loads(dict['freqEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.distEnvs = json.loads(dict['distEnvs'], object_hook = EnvelopeEncoder.decode)

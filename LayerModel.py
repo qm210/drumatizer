@@ -96,6 +96,7 @@ class Layer:
             'Vote Leave Good Taste',
             'There is no off switch on the genius switch',
             'I think you are from Wuppertal',
+            'Hat hier jemand die 2-1-0 gewählt??'
         ]
         sentences = [s for s in allSentences if s not in skip]
         if sentences:

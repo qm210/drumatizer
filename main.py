@@ -18,7 +18,7 @@ from mayStyle import mayStyle
 
 class MainWindow(QWidget):
 
-    autosave_file = 'auto.drumset'
+    autosaveFile = 'auto.drumset'
 
     def __init__(self):
         super().__init__()
@@ -60,15 +60,17 @@ class MainWindow(QWidget):
                     self.renderWidget.renderShaderAndPlay(file = f'{currentDrum.name}.wav')
 
             if event.key() == Qt.Key_A:
-                print(f"Saving to {self.autosave_file}...")
+                print(f"Saving to {self.autosaveFile}...")
                 self.autosave()
 
             if event.key() == Qt.Key_S:
                 self.drumWidget.purgeUnusedEnvelopes()
-                self.drumWidget.drumExport(useCurrentDrumName = True)
+                # self.drumWidget.drumExport(useCurrentDrumName = True)
+                self.autosaveFile = self.drumWidget.lastExportedDrumset or self.autosaveFile
+                self.drumWidget.drumExport(name = self.autosaveFile)
 
             if event.key() == Qt.Key_L:
-                print(f"Loading from {self.autosave_file}...")
+                print(f"Loading from {self.autosaveFile}...") # TODO: this doesn't make much sense, I guess, if autosaveInterval is small
                 self.autoload()
 
             if event.key() == Qt.Key_P:
@@ -115,14 +117,14 @@ class MainWindow(QWidget):
 
     def autoload(self):
         try:
-            self.drumWidget.drumImport(name = self.autosave_file)
+            self.drumWidget.drumImport(name = self.autosaveFile)
         except FileNotFoundError:
             self.drumWidget.initData()
 
     def autosave(self):
         try:
             self.drumWidget.setSynDumpParameters(self.renderWidget.useSynDump, self.renderWidget.synFileName, self.renderWidget.synDrumName)
-            self.drumWidget.drumExport(name = self.autosave_file)
+            self.drumWidget.drumExport(name = self.autosaveFile)
         except Exception as ex:
             print('Autosave failed...', ex)
 
@@ -130,8 +132,8 @@ class MainWindow(QWidget):
         self.renderWidget.paste(shaderSource)
         self.renderWidget.renderShaderAndPlay()
 
-    def sendDrumatizeDetailsToRenderer(self, dL, dR, envCode):
-        self.renderWidget.dumpInSynFile(dL, dR, envCode)
+    def sendDrumatizeDetailsToRenderer(self, dL, dR, envCode, releaseTime):
+        self.renderWidget.dumpInSynFile(dL, dR, envCode, releaseTime)
 
     def sendSynDumpParametersToRenderer(self):
         self.renderWidget.setSynDumpParameters(*(self.drumWidget.getSynDumpParameters()))

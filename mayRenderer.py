@@ -391,7 +391,7 @@ void main()
     def setVolume(self):
         self.audiooutput.setVolume(self.playbackVolumeSlider.value() * .01)
 
-    def dumpInSynFile(self, drumatizeL, drumatizeR, envCode):
+    def dumpInSynFile(self, drumatizeL, drumatizeR, envCode, releaseTime):
         if self.synDrumName == '':
             print("specify a valid drum name!!")
             return
@@ -406,7 +406,7 @@ void main()
         drumatizeR = drumatizeR.replace('__ENV', uniqueEnv)
         envCode = envCode.replace('__ENV', uniqueEnv).replace('\n',' ')
         parLine = f'param include src="{envCode}"\n'
-        synLine = f'maindrum {self.synDrumName} src="{drumatizeL}" srcr="{drumatizeR}"\n'
+        synLine = f'maindrum {self.synDrumName} src="{drumatizeL}" srcr="{drumatizeR}" release={releaseTime}\n'
         print(parLine, '\n', synLine)
 
         tmpSynFile = 'tmp.syn'

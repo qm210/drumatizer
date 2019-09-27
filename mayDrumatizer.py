@@ -24,7 +24,7 @@ from Drumatizer import Drumatizer
 class MayDrumatizer(QWidget):
 
     shaderCreated = pyqtSignal(str)
-    synDrumCreated = pyqtSignal(str, str, str)
+    synDrumCreated = pyqtSignal(str, str, str, float)
     selectDrum = pyqtSignal()
 
     def __init__(self, parent):
@@ -32,6 +32,7 @@ class MayDrumatizer(QWidget):
         self.parent = parent
 
         self.renderTemplate = 'template.drumatize'
+        self.lastExportedDrumset = None
 
         self.initLayouts()
         self.initSignals()
@@ -500,7 +501,7 @@ class MayDrumatizer(QWidget):
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
         self.shaderCreated.emit(sourceShader)
         if dumpSyn:
-            self.synDrumCreated.emit(drumatizeL, drumatizeR, envFunc)
+            self.synDrumCreated.emit(drumatizeL, drumatizeR, envFunc, self.currentDrum().releaseTime)
 
 
 #################################### DRUMS ##########################################
@@ -553,11 +554,11 @@ class MayDrumatizer(QWidget):
             self.drumModel.layoutChanged.emit()
 
     def drumEdit(self):
-        currentParameters = f'{self.currentDrum().name}; {self.currentDrum().type}; {self.currentDrum().iLike}'
+        currentParameters = f'{self.currentDrum().name}; {self.currentDrum().type}; {self.currentDrum().iLike}; {self.currentDrum().releaseTime}'
         dialog = QInputDialog(self.parent)
         dialog.setInputMode(QInputDialog.TextInput)
         dialog.setWindowTitle('Edit Drum')
-        dialog.setLabelText('Enter [name; type; awesomeness]')
+        dialog.setLabelText('Enter [name; type; awesomeness; release time]')
         dialog.setTextValue(currentParameters)
         dialog.resize(400,200)
         ok = dialog.exec_()
@@ -569,13 +570,15 @@ class MayDrumatizer(QWidget):
         if len(pars) > 1:
             self.currentDrum().adjust(type = pars[1].strip())
         if len(pars) > 2:
-            self.currentDrum().adjust(iLike = int(pars[2].strip()))
+            self.currentDrum().adjust(iLike = int(pars[2]))
+        if len(pars) > 3:
+            self.currentDrum().adjust(releaseTime = float(pars[3]))
 
         currentPostProc = f'{self.currentDrum().postprocPrefix}...{self.currentDrum().postprocSuffix}'
         dialog = QInputDialog(self.parent)
         dialog.setInputMode(QInputDialog.TextInput)
         dialog.setWindowTitle('Post Processing')
-        dialog.setLabelText('Enter [Prefix...Suffix] (with these ...!)')
+        dialog.setLabelText('Enter [] (with these ...!)')
         dialog.setTextValue(currentPostProc)
         dialog.resize(400,200)
         ok = dialog.exec_()
@@ -609,6 +612,7 @@ class MayDrumatizer(QWidget):
                 self.currentDrum().adjust(name = actualName) # TODO: think about whether we want this
         elif extension == 'drumset':
             json.dump(self.drumModel.drums, fn, cls = DrumEncoder)
+            self.lastExportedDrumset = name
         else:
             print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
         fn.close()
@@ -807,8 +811,11 @@ class MayDrumatizer(QWidget):
         name = self.layerEditorName.text()
         if self.layerModel.justAddedNew and name != '':
             self.currentLayerAmplEnv().adjust(name = name)
+            self.amplEnvModel.emitAllChanged()
             self.currentLayerFreqEnv().adjust(name = name)
+            self.freqEnvModel.emitAllChanged()
             self.currentLayerDistEnv().adjust(name = name)
+            self.distEnvModel.emitAllChanged()
         self.layerModel.justAddedNew = False
 
     def layerSetType(self, type):
