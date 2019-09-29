@@ -339,7 +339,8 @@ void main()
         glwidget = SFXGLWidget(self, self.audioformat.sampleRate(), duration, self.texsize, moreUniforms = uniforms)
 
         glwidget.show()
-        self.log = glwidget.newShader(shaderSource)
+        log = glwidget.newShader(shaderSource)
+        print(log)
         self.music = glwidget.music
         floatmusic = glwidget.floatmusic
         glwidget.hide()
@@ -392,6 +393,8 @@ void main()
         self.audiooutput.setVolume(self.playbackVolumeSlider.value() * .01)
 
     def dumpInSynFile(self, drumatizeL, drumatizeR, envCode, releaseTime):
+        if not self.synDumpCheckBox.isChecked():
+            return
         if self.synDrumName == '':
             print("specify a valid drum name!!")
             return

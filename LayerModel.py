@@ -14,11 +14,13 @@ class Layer:
     unitDetune = 1e-3
     unitStereoDelay = 1e-5
 
-    def __init__(self, amplEnv = None, freqEnv = None, distEnv = None, name = None, _hash = None, amplEnvHash = None, freqEnvHash = None, distEnvHash = None):
+    def __init__(self, amplEnv = None, freqEnv = None, distEnv = None, name = None, _hash = None, amplEnvHash = None, freqEnvHash = None, distEnvHash = None, master = False):
         self.name = name or self.talkSomeTeam210Shit()
         self.type = layerTypes[0]
         self.amplEnvHash = amplEnv._hash if amplEnv is not None else amplEnvHash
+        self.amplOff = False if not master else True
         self.freqEnvHash = freqEnv._hash if freqEnv is not None else freqEnvHash
+        self.freqHarmonic = 0
         self.distEnvHash = distEnv._hash if distEnv is not None else distEnvHash
         self.distType = 'Overdrive'
         self.distParam = 2
@@ -31,6 +33,7 @@ class Layer:
         self.detune = 0
         self.stereodelay = 0
         self._hash = _hash or hash(self)
+        self.master = master
 
     def __str__(self):
         volumeRepr = '{}%'.format(self.volume) if not self.mute else 'MUTED'
@@ -43,8 +46,12 @@ class Layer:
             self.type = args['type']
         if 'amplEnv' in args:
             self.amplEnvHash = args['amplEnv']._hash
+        if 'amplOff' in args:
+            self.amplOff = args['amplOff']
         if 'freqEnv' in args:
             self.freqEnvHash = args['freqEnv']._hash
+        if 'freqHarmonic' in args:
+            self.freqHarmonic = args['freqHarmonic']
         if 'distEnv' in args:
             self.distEnvHash = args['distEnv']._hash
         if 'distType' in args:
@@ -96,7 +103,8 @@ class Layer:
             'Vote Leave Good Taste',
             'There is no off switch on the genius switch',
             'I think you are from Wuppertal',
-            'Hat hier jemand die 2-1-0 gewählt??'
+            'Hat hier jemand die 2-1-0 gewählt??',
+            'Denken Sie an die Schande und dass Sie ruiniert werden können.'
         ]
         sentences = [s for s in allSentences if s not in skip]
         if sentences:
@@ -207,7 +215,9 @@ class LayerEncoder(json.JSONEncoder):
                 'name': obj.name,
                 'type': obj.type,
                 'amplEnvHash': obj.amplEnvHash,
+                'amplOff': obj.amplOff,
                 'freqEnvHash': obj.freqEnvHash,
+                'freqHarmonic': obj.freqHarmonic,
                 'distEnvHash': obj.distEnvHash,
                 'distType': obj.distType,
                 'distParam': obj.distParam,
@@ -218,32 +228,36 @@ class LayerEncoder(json.JSONEncoder):
                 'stereodelay': obj.stereodelay,
                 'phasemodOff': obj.phasemodOff,
                 'phasemodAmt': obj.phasemodAmt,
-                'phasemodSrcHash': obj.phasemodSrcHash
+                'phasemodSrcHash': obj.phasemodSrcHash,
+                'master': obj.master
             }
             return layerObj
         else:
             return super().default(obj)
 
     @classmethod
-    def decode(self, dict):
-        if '__drumatizeLayer__' in dict:
+    def decode(self, dic):
+        if isinstance(dic, dict) and'__drumatizeLayer__' in dic:
             layer = Layer(
-                name = dict['name'],
-                amplEnvHash = dict['amplEnvHash'],
-                freqEnvHash = dict['freqEnvHash'],
-                distEnvHash = dict['distEnvHash'],
-                _hash = dict['__drumatizeLayer__']
+                name = dic['name'],
+                amplEnvHash = dic['amplEnvHash'],
+                freqEnvHash = dic['freqEnvHash'],
+                distEnvHash = dic['distEnvHash'],
+                _hash = dic['__drumatizeLayer__']
             )
-            layer.type = dict['type']
-            layer.distType = dict['distType']
-            layer.distParam = dict['distParam']
-            layer.distOff = dict['distOff']
-            layer.volume = dict['volume']
-            layer.mute = dict['mute']
-            layer.detune = dict['detune']
-            layer.stereodelay = dict['stereodelay']
-            layer.phasemodOff = dict['phasemodOff']
-            layer.phasemodAmt = dict['phasemodAmt']
-            layer.phasemodSrcHash = dict['phasemodSrcHash']
+            layer.master = dic.get('master', Layer().master)
+            layer.type = dic.get('type', Layer().type)
+            layer.amplOff = dic.get('amplOff', Layer(master = layer.master).amplOff)
+            layer.freqHarmonic = dic.get('freqHarmonic', Layer().freqHarmonic)
+            layer.distType = dic.get('distType', Layer().distType)
+            layer.distParam = dic.get('distParam', Layer().distParam)
+            layer.distOff = dic.get('distOff', Layer().distOff)
+            layer.volume = dic.get('volume', Layer().volume)
+            layer.mute = dic.get('mute', Layer().mute)
+            layer.detune = dic.get('detune', Layer().detune)
+            layer.stereodelay = dic.get('stereodelay', Layer().stereodelay)
+            layer.phasemodOff = dic.get('phasemodOff', Layer().phasemodOff)
+            layer.phasemodAmt = dic.get('phasemodAmt', Layer().phasemodAmt)
+            layer.phasemodSrcHash = dic.get('phasemodSrcHash', Layer().phasemodSrcHash)
             return layer
-        return dict
+        return dic

@@ -217,10 +217,8 @@ defaultDistEnvelope = Envelope(
     name = '(default)',
     type = 'distortion',
     points = [
-        EnvelopePoint(0.00, 1.0, name = 'distAmt0', fixedTime = True),
-        EnvelopePoint(0.20, 1.15, name = 'distAmt1'),
-        EnvelopePoint(0.80, 0.5, name = 'distAmt2'),
-        EnvelopePoint(1.20, 0.2, name = 'distAmt3')
+        EnvelopePoint(0.00, 1.0, fixedTime = True),
+        EnvelopePoint(0.80, 0.5),
     ])
 
 

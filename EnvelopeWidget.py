@@ -2,7 +2,7 @@ import sys
 from PyQt5 import QtGui, QtWidgets, QtCore
 from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QRect
 from PyQt5.QtGui import QColor
-from math import pow, sqrt, log, exp
+from math import sqrt, log, exp
 
 #from EnvelopeModel import *
 from DoubleInputDialog import DoubleInputDialog
@@ -173,7 +173,7 @@ class EnvelopeWidget(QtWidgets.QWidget):
         minDistance = None
         for p in self.points:
             pX, pY = self.getCoordinatesOfDimensions(p.time, p.value)
-            distance = sqrt( pow(pX - coordX, 2) + pow(pY - coordY, 2) )
+            distance = sqrt( (pX - coordX)**2 + (pY - coordY)**2 )
             if distance < self.POINTSIZE_PROX * self.qrect.width():
                 if nextNeighbor is None or distance < minDistance:
                     nextNeighbor = p

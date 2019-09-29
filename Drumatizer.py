@@ -18,13 +18,12 @@ def GLstr(s):
 
 class Drumatizer:
 
-    def __init__(self, layers, amplEnvs, freqEnvs, distEnvs, postprocPrefix, postprocSuffix):
+    def __init__(self, layers, amplEnvs, freqEnvs, distEnvs, masterLayer = None):
         self.layers = layers
+        self.masterLayer = masterLayer
         self.amplEnvs = amplEnvs
         self.freqEnvs = freqEnvs
         self.distEnvs = distEnvs
-        self.postprocPrefix = postprocPrefix
-        self.postprocSuffix = postprocSuffix
 
         self.separateFunctionCount = 0
         self.separateFunctionCode = ''
@@ -41,7 +40,7 @@ class Drumatizer:
 
             tryExpFit = ('tryExpFit' in amplEnv.parameters and amplEnv.parameters['tryExpFit'])
             if tryExpFit:
-                glslAmplEnvs[amplEnv._hash] = self.expDecayFit(amplEnv)
+                glslAmplEnvs[amplEnv._hash] = self.expDecayFit(amplEnv) if amplEnv.pointNumber() <= 3 else self.expHoldDecayFit(amplEnv)
             else:
                 glslAmplEnvs[amplEnv._hash] = self.linearEnvelope(amplEnv)
 
@@ -53,11 +52,16 @@ class Drumatizer:
         glslFreqForNoise = {}
         glslDetuneFactor = {}
         for layer in self.layers:
+            for env in (env._hash for env in self.freqEnvs):
+                print(env, layer.freqEnvHash)
             freqEnv = next(env for env in self.freqEnvs if env._hash == layer.freqEnvHash)
             freqPointNumber = freqEnv.pointNumber()
             glslFreqForNoise[layer._hash] = self.linearEnvelope(freqEnv)
             glslDetuneFactor[layer._hash] = GLfloat(round(1. - layer.detune * layer.unitDetune, 5))
             usePolynomial = ('usePolynomial' in freqEnv.parameters and freqEnv.parameters['usePolynomial'])
+
+            for freqPoint in freqEnv.points:
+                freqPoint.value *= 2 ** layer.freqHarmonic
 
             if usePolynomial:
                 glslPhase[layer._hash] = self.polynomialPhase(freqEnv.points)
@@ -98,8 +102,12 @@ class Drumatizer:
             layerResult_R = layerResult.replace('_PROGTIME', _PROGTIME_R)
 
             glslVolume = GLfloat(round(layer.volume * layer.unitVolume, 3))
-            groupedResultsWithoutAmplEnv_L[layer.amplEnvHash].append(f'{glslVolume}*{layerResult_L}')
-            groupedResultsWithoutAmplEnv_R[layer.amplEnvHash].append(f'{glslVolume}*{layerResult_R}')
+            if glslVolume == GLfloat(1):
+                glslVolume = ''
+            else:
+                glslVolume += '*'
+            groupedResultsWithoutAmplEnv_L[layer.amplEnvHash].append(f'{glslVolume}{layerResult_L}')
+            groupedResultsWithoutAmplEnv_R[layer.amplEnvHash].append(f'{glslVolume}{layerResult_R}')
 
         groupResults_L = []
         groupResults_R = []
@@ -109,8 +117,31 @@ class Drumatizer:
             groupResults_L.append('{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_L)) if grouped_L else '0.')
             groupResults_R.append('{}*({})'.format(glslAmplEnvs[amplEnvHash], '+'.join(grouped_R)) if grouped_R else '0.')
 
-        resultL = self.postprocPrefix + '+'.join(groupResults_L).replace('_ENVTIME', '_t') + self.postprocSuffix
-        resultR = self.postprocPrefix + '+'.join(groupResults_R).replace('_ENVTIME', '_t') + self.postprocSuffix
+        resultL = '+'.join(groupResults_L)
+        resultR = '+'.join(groupResults_R)
+
+        if self.masterLayer is None:
+            resultL = f"vel*({resultL})"
+            resultR = f"vel*({resultR})"
+        else:
+            if not self.masterLayer.distOff and self.masterLayer.distEnvHash is not None:
+                masterDistEnv = next(env for env in self.distEnvs if env._hash == self.masterLayer.distEnvHash)
+                glslMasterDistEnv = self.linearEnvelope(masterDistEnv)
+                resultL = f"vel*{self.applyDistortion(resultL, self.masterLayer.distType, self.masterLayer.distParam, glslMasterDistEnv)}"
+                resultR = f"vel*{self.applyDistortion(resultR, self.masterLayer.distType, self.masterLayer.distParam, glslMasterDistEnv)}"
+            else:
+                resultL = f"vel*({resultL})"
+                resultR = f"vel*({resultR})"
+            if not self.masterLayer.amplOff and self.masterLayer.amplEnvHash is not None:
+                resultL = f"{glslAmplEnvs[self.masterLayer.amplEnvHash]}*{resultL}"
+                resultR = f"{glslAmplEnvs[self.masterLayer.amplEnvHash]}*{resultR}"
+            glslMasterVolume = GLfloat(round(self.masterLayer.volume * self.masterLayer.unitVolume, 3))
+            if glslMasterVolume != GLfloat(1):
+                resultL = f"{glslMasterVolume}*{resultL}"
+                resultR = f"{glslMasterVolume}*{resultR}"
+
+        resultL = resultL.replace('_ENVTIME', '_t')
+        resultR = resultR.replace('_ENVTIME', '_t')
         envFuncCode = self.separateFunctionCode.replace('_ENVTIME', 't')
 
         return resultL, resultR, envFuncCode
@@ -173,7 +204,7 @@ class Drumatizer:
             return f's_atan({distParam}*{distEnv}*{layerClean})'
         else:
             print(f'Distortion of type \'{distType}\' does not exist!')
-            return layerClean
+            return f'({layerClean})'
 
     def linearEnvelope(self, env):
         if len(env.points) == 0:
@@ -215,6 +246,28 @@ class Drumatizer:
             return self.linearEnvelope(env)
 
         term = f'(_ENVTIME <= {attack}? smoothstep(0., {attack}, _ENVTIME): exp(-{kappa}*(_ENVTIME-{attack})) )'
+        return term
+
+    def expHoldDecayFit(self, env):
+        def expholdfunc(x, kappa):
+            return np.exp(-kappa * np.maximum(x - hold, np.zeros_like(x)))
+
+        attack = round(env.points[1].time, 3)
+        t_data = np.array([p.time - attack for p in env.points[1:]])
+        v_data = np.array([p.value for p in env.points[1:]])
+        print("times:", t_data, "values:", v_data)
+
+        try:
+            opt, cov = curve_fit(expholdfunc, t_data, v_data)
+            print(opt, cov)
+            kappa = round(opt[0], 3)
+            hold = round(opt[1], 3)
+        except RuntimeError as error:
+            print("RuntimeError:", error.args[0])
+            print("fit to exponential-hold-decay didn't work. use linear model...")
+            return self.linearEnvelope(env)
+
+        term = f'(_ENVTIME <= {attack}? smoothstep(0., {attack}, _ENVTIME): exp(-{kappa}*(max(_ENVTIME-{hold},0.)-{attack})) )'
         return term
 
     def polynomialPhase(self, freqPoints):

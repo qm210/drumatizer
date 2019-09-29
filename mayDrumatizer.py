@@ -67,22 +67,30 @@ class MayDrumatizer(QWidget):
         # layer widget
         self.layerMainLayout = QHBoxLayout()
         self.layerListLayout = QVBoxLayout()
+        self.layerListMainLayout = QHBoxLayout()
+        self.layerBtnMaster = QPushButton('Master')
+        self.layerMasterSelected = False
         self.layerList = QListView()
         self.layerList.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.layerListLayout.addWidget(QLabel('Drum Layers'))
+        self.layerListMainLayout.addWidget(QLabel('Drum Layers'),7)
+        self.layerListMainLayout.addWidget(self.layerBtnMaster,3)
+        self.layerListLayout.addLayout(self.layerListMainLayout)
         self.layerListLayout.addWidget(self.layerList)
 
         self.layerEditor = QGroupBox()
         self.layerEditorLayout = QGridLayout()
         self.layerEditor.setLayout(self.layerEditorLayout)
-
         self.layerEditorName = QLineEdit()
         self.layerEditorType = QComboBox()
         self.layerEditorType.addItems(layerTypes)
-        self.layerChooseAmplEnvList = QComboBox()
-        self.layerChooseFreqEnvList = QComboBox()
-        self.layerChooseDistEnvList = QComboBox()
-        self.layerChooseDistOff = QCheckBox('no pls')
+        self.layerEditorAmplEnvList = QComboBox()
+        self.layerEditorFreqEnvList = QComboBox()
+        self.layerEditorDistEnvList = QComboBox()
+        self.layerEditorFreqHarmonic = QSpinBox()
+        self.layerEditorFreqHarmonic.setRange(-99, 99)
+        self.layerEditorFreqHarmonic.setToolTip('Harmonic Shift')
+        self.layerEditorFreqHarmonic.setSuffix(' oct')
+        self.layerEditorDistOff = QCheckBox('no pls')
         self.layerEditorVolumeSlider = QSlider(Qt.Horizontal)
         self.layerEditorVolumeSlider.setValue(100)
         self.layerEditorVolumeSlider.setRange(0, 200)
@@ -95,17 +103,17 @@ class MayDrumatizer(QWidget):
         self.layerEditorStereoDelaySlider.setRange(0, 200)
         self.layerEditorStereoDelaySlider.setValue(0)
         self.layerEditorStereoDelayLabel = QLabel('0 ppm')
-
         self.layerEditorLayout.addWidget(QLabel('Layer:'), 0, 0)
         self.layerEditorLayout.addWidget(self.layerEditorName, 0, 1)
         self.layerEditorLayout.addWidget(self.layerEditorType, 0, 2)
         self.layerEditorLayout.addWidget(QLabel('Amplitude Env.:'), 1, 0)
-        self.layerEditorLayout.addWidget(self.layerChooseAmplEnvList, 1, 1)
+        self.layerEditorLayout.addWidget(self.layerEditorAmplEnvList, 1, 1)
         self.layerEditorLayout.addWidget(QLabel('Frequency Env.:'), 2, 0)
-        self.layerEditorLayout.addWidget(self.layerChooseFreqEnvList, 2, 1)
+        self.layerEditorLayout.addWidget(self.layerEditorFreqEnvList, 2, 1)
+        self.layerEditorLayout.addWidget(self.layerEditorFreqHarmonic, 2, 2)
         self.layerEditorLayout.addWidget(QLabel('Distortion Env.:'), 3, 0)
-        self.layerEditorLayout.addWidget(self.layerChooseDistEnvList, 3, 1)
-        self.layerEditorLayout.addWidget(self.layerChooseDistOff, 3, 2)
+        self.layerEditorLayout.addWidget(self.layerEditorDistEnvList, 3, 1)
+        self.layerEditorLayout.addWidget(self.layerEditorDistOff, 3, 2)
         self.layerEditorLayout.addWidget(QLabel('Volume:'), 4, 0)
         self.layerEditorLayout.addWidget(self.layerEditorVolumeSlider, 4, 1)
         self.layerEditorLayout.addWidget(self.layerEditorVolumeLabel, 4, 2)
@@ -116,7 +124,6 @@ class MayDrumatizer(QWidget):
         self.layerEditorLayout.addWidget(self.layerEditorStereoDelaySlider, 6, 1)
         self.layerEditorLayout.addWidget(self.layerEditorStereoDelayLabel, 6, 2)
         self.layerEditorLayout.setVerticalSpacing(7)
-        # TODO: additional "phase mod by Layer" function, but THERE IS NO SPACE..!
 
         self.layerMenu = QVBoxLayout()
         self.layerMenu.addStretch()
@@ -134,9 +141,34 @@ class MayDrumatizer(QWidget):
         self.layerMenu.addWidget(self.layerMenuMuteBox)
         self.layerMenu.addWidget(self.layerMenuBtnRenderSolo)
 
+        self.layerMasterEditor = QGroupBox()
+        self.layerMasterEditorLayout = QGridLayout()
+        self.layerMasterEditor.setLayout(self.layerMasterEditorLayout)
+        self.layerMasterEditorAmplEnvList = QComboBox()
+        self.layerMasterEditorAmplOff = QCheckBox('const')
+        self.layerMasterEditorDistEnvList = QComboBox()
+        self.layerMasterEditorDistOff = QCheckBox('no pls')
+        self.layerMasterEditorVolumeSlider = QSlider(Qt.Horizontal)
+        self.layerMasterEditorVolumeSlider.setValue(100)
+        self.layerMasterEditorVolumeSlider.setRange(0, 200)
+        self.layerMasterEditorVolumeLabel = QLabel('100%')
+        self.layerMasterEditorLayout.addWidget(QLabel('Master Amplitude Env.:'), 1, 0)
+        self.layerMasterEditorLayout.addWidget(self.layerMasterEditorAmplEnvList, 1, 1)
+        self.layerMasterEditorLayout.addWidget(self.layerMasterEditorAmplOff, 1, 2)
+        self.layerMasterEditorLayout.addWidget(QLabel('Master Distortion Env.:'), 2, 0)
+        self.layerMasterEditorLayout.addWidget(self.layerMasterEditorDistEnvList, 2, 1)
+        self.layerMasterEditorLayout.addWidget(self.layerMasterEditorDistOff, 2, 2)
+        self.layerMasterEditorLayout.addWidget(QLabel('Master Volume:'), 3, 0)
+        self.layerMasterEditorLayout.addWidget(self.layerMasterEditorVolumeSlider, 3, 1)
+        self.layerMasterEditorLayout.addWidget(self.layerMasterEditorVolumeLabel, 3, 2)
+
+        self.layerEditorStack = QStackedLayout()
+        self.layerEditorStack.addWidget(self.layerEditor)
+        self.layerEditorStack.addWidget(self.layerMasterEditor)
+
         self.layerMainLayout.addLayout(self.layerListLayout, 50)
         self.layerMainLayout.addLayout(self.layerMenu, 1)
-        self.layerMainLayout.addWidget(self.layerEditor, 49)
+        self.layerMainLayout.addLayout(self.layerEditorStack, 49)
 
         self.layerGroup = QGroupBox()
         self.layerGroup.setLayout(self.layerMainLayout)
@@ -334,6 +366,7 @@ class MayDrumatizer(QWidget):
         self.drumBtnImport.pressed.connect(self.drumImport)
         self.drumBtnRender.pressed.connect(self.drumRender)
 
+        self.layerBtnMaster.pressed.connect(self.layerSelectMaster)
         self.layerMenuBtnAdd.pressed.connect(self.layerAdd)
         self.layerMenuBtnDel.pressed.connect(self.layerDelete)
         self.layerMenuBtnSwap.pressed.connect(self.layerSwap)
@@ -342,14 +375,21 @@ class MayDrumatizer(QWidget):
         self.layerEditorName.textChanged.connect(self.layerSetName)
         self.layerEditorName.editingFinished.connect(self.layerRenameFresh)
         self.layerEditorType.currentTextChanged.connect(self.layerSetType)
-        self.layerChooseAmplEnvList.currentIndexChanged.connect(self.amplEnvSelectIndex)
-        self.layerChooseFreqEnvList.currentIndexChanged.connect(self.freqEnvSelectIndex)
-        self.layerChooseDistEnvList.currentIndexChanged.connect(self.distEnvSelectIndex)
-        self.layerChooseDistOff.stateChanged.connect(self.layerSetDistOff)
+        self.layerEditorAmplEnvList.currentIndexChanged.connect(self.amplEnvSelectIndex)
+        self.layerEditorFreqEnvList.currentIndexChanged.connect(self.freqEnvSelectIndex)
+        self.layerEditorFreqHarmonic.valueChanged.connect(self.layerSetFreqHarmonic)
+        self.layerEditorDistEnvList.currentIndexChanged.connect(self.distEnvSelectIndex)
+        self.layerEditorDistOff.stateChanged.connect(self.layerSetDistOff)
         self.layerEditorVolumeSlider.valueChanged.connect(self.layerSetVolume)
         self.layerEditorDetuneSlider.valueChanged.connect(self.layerSetDetune)
         self.layerEditorStereoDelaySlider.valueChanged.connect(self.layerSetStereoDelay)
         self.layerMenuMuteBox.stateChanged.connect(self.layerSetMute)
+
+        self.layerMasterEditorAmplEnvList.currentIndexChanged.connect(self.amplEnvSelectIndex)
+        self.layerMasterEditorAmplOff.stateChanged.connect(self.layerSetAmplOff)
+        self.layerMasterEditorDistEnvList.currentIndexChanged.connect(self.distEnvSelectIndex)
+        self.layerMasterEditorDistOff.stateChanged.connect(self.layerSetDistOff)
+        self.layerMasterEditorVolumeSlider.valueChanged.connect(self.layerSetVolume)
 
         self.amplEnvMenuBtnAdd.pressed.connect(self.amplEnvAdd)
         self.amplEnvMenuBtnDel.pressed.connect(self.amplEnvDelete)
@@ -409,12 +449,13 @@ class MayDrumatizer(QWidget):
         self.distEnvModel.layoutChanged.connect(self.distEnvUpdateWidget)
         self.distEnvModel.dataChanged.connect(self.updateDrumDistEnvs)
 
-        self.layerChooseAmplEnvList.setModel(self.amplEnvModel)
-        self.layerChooseFreqEnvList.setModel(self.freqEnvModel)
-        self.layerChooseDistEnvList.setModel(self.distEnvModel)
+        self.layerEditorAmplEnvList.setModel(self.amplEnvModel)
+        self.layerEditorFreqEnvList.setModel(self.freqEnvModel)
+        self.layerEditorDistEnvList.setModel(self.distEnvModel)
+        self.layerMasterEditorAmplEnvList.setModel(self.amplEnvModel)
+        self.layerMasterEditorDistEnvList.setModel(self.distEnvModel)
 
         self.distMenuEdit_PhaseModSource.setModel(self.layerModel)
-
 
     def initDefaultDrum(self):
         self.defaultDrum = Drum()
@@ -468,7 +509,7 @@ class MayDrumatizer(QWidget):
         return sourceTemplateStream.readAll()
 
     def hashAllUsedEnvelopes(self):
-        hashsInUse = []
+        hashsInUse = [self.masterLayer().amplEnvHash, self.masterLayer().distEnvHash]
         for layer in self.layerModel.layers:
             hashsInUse += [layer.amplEnvHash, layer.freqEnvHash, layer.distEnvHash]
         return set(hashsInUse)
@@ -492,11 +533,11 @@ class MayDrumatizer(QWidget):
         for env in self.distEnvModel.envelopes:
             print('\t', env.name, env._hash)
         print("=== AND NOW ALL HASHS OF ENVELOPES CURRENTLY USED IN LAYERS: ===")
-        print('\n'.join(self.hashAllUsedEnvelopes()))
+        print('\n'.join(str(hash) for hash in self.hashAllUsedEnvelopes()))
 
 
     def drumatizeLayers(self, layers, dumpSyn = False):
-        drumatizer = Drumatizer(layers, self.amplEnvModel.envelopes, self.freqEnvModel.envelopes, self.distEnvModel.envelopes, self.currentDrum().postprocPrefix, self.currentDrum().postprocSuffix)
+        drumatizer = Drumatizer(layers, self.amplEnvModel.envelopes, self.freqEnvModel.envelopes, self.distEnvModel.envelopes, self.masterLayer())
         drumatizeL, drumatizeR, envFunc = drumatizer.drumatize()
         sourceShader = self.loadSourceTemplate().replace('AMAYDRUMATIZE_L', drumatizeL).replace('AMAYDRUMATIZE_R', drumatizeR).replace('//ENVFUNCTIONCODE', envFunc)
         self.shaderCreated.emit(sourceShader)
@@ -515,6 +556,9 @@ class MayDrumatizer(QWidget):
         except IndexError:
             return None
 
+    def masterLayer(self):
+        return self.currentDrum().masterLayer
+
     def drumLoad(self, index = None):
         self.selectDrum.emit()
         if index is not None:
@@ -528,6 +572,7 @@ class MayDrumatizer(QWidget):
         self.layerModel.clearAndRefill(drum.layers)
         self.layerSelect(0)
         self.layerLoad()
+        self.layerBtnMaster.setText(f'Master ({drum.masterLayer.volume}%)')
 
     def drumInsertAndSelect(self, drum, position = None):
         self.drumModel.insertNew(drum, position)
@@ -558,7 +603,7 @@ class MayDrumatizer(QWidget):
         dialog = QInputDialog(self.parent)
         dialog.setInputMode(QInputDialog.TextInput)
         dialog.setWindowTitle('Edit Drum')
-        dialog.setLabelText('Enter [name; type; awesomeness; release time]')
+        dialog.setLabelText('Enter [name; type; awesomeness; release (unit: Beats))]')
         dialog.setTextValue(currentParameters)
         dialog.resize(400,200)
         ok = dialog.exec_()
@@ -573,23 +618,6 @@ class MayDrumatizer(QWidget):
             self.currentDrum().adjust(iLike = int(pars[2]))
         if len(pars) > 3:
             self.currentDrum().adjust(releaseTime = float(pars[3]))
-
-        currentPostProc = f'{self.currentDrum().postprocPrefix}...{self.currentDrum().postprocSuffix}'
-        dialog = QInputDialog(self.parent)
-        dialog.setInputMode(QInputDialog.TextInput)
-        dialog.setWindowTitle('Post Processing')
-        dialog.setLabelText('Enter [] (with these ...!)')
-        dialog.setTextValue(currentPostProc)
-        dialog.resize(400,200)
-        ok = dialog.exec_()
-        if not ok:
-            return
-        pars = dialog.textValue().split('...')
-        if len(pars) != 2:
-            print(dialog.textValue(), 'is not a valid post processing Prefix...Suffix form.')
-            return
-        self.currentDrum().adjust(postprocPrefix = pars[0].strip())
-        self.currentDrum().adjust(postprocSuffix = pars[1].strip())
 
     def drumExport(self, name = None, useCurrentDrumName = False):
         if name is None:
@@ -650,7 +678,6 @@ class MayDrumatizer(QWidget):
             print('File extension is neither .drum nor .drumset, I do not quit but refuse to do shit!')
         fn.close()
 
-
     def drumRender(self):
         self.drumatizeLayers(self.currentDrum().layers, dumpSyn = True)
 
@@ -674,6 +701,9 @@ class MayDrumatizer(QWidget):
 
     def anyLayers(self, moreThan = 0):
         return self.layerModel.rowCount() > moreThan
+
+    def currentOrMasterLayer(self):
+        return self.currentLayer() if not self.layerMasterSelected else self.masterLayer()
 
     def currentLayer(self):
         try:
@@ -709,6 +739,7 @@ class MayDrumatizer(QWidget):
         return self.layerDistEnv(self.currentLayer())
 
     def layerLoad(self, current = None, previous = None):
+        self.layerSelectMaster(False)
         if current is None:
             current = self.layerList.currentIndex()
         layer = self.layerModel.layers[current.row()]
@@ -716,19 +747,20 @@ class MayDrumatizer(QWidget):
         self.layerEditorType.setCurrentText(layer.type)
 
         if self.layerAmplEnv(layer) is not None:
-            self.layerChooseAmplEnvList.setCurrentText(self.layerAmplEnv(layer).name)
+            self.layerEditorAmplEnvList.setCurrentText(self.layerAmplEnv(layer).name)
             self.amplEnvMenu_TryExpFitChkBox.setChecked(self.layerAmplEnv(layer).parameters['tryExpFit'])
         if self.layerFreqEnv(layer) is not None:
             self.freqEnvMenu_UsePolynomialChkBox.setChecked(self.layerFreqEnv(layer).parameters['usePolynomial'])
-            self.layerChooseFreqEnvList.setCurrentText(self.layerFreqEnv(layer).name)
+            self.layerEditorFreqEnvList.setCurrentText(self.layerFreqEnv(layer).name)
         if self.layerDistEnv(layer) is not None:
-            self.layerChooseDistEnvList.setCurrentText(self.layerDistEnv(layer).name)
+            self.layerEditorDistEnvList.setCurrentText(self.layerDistEnv(layer).name)
 
-        self.layerChooseDistOff.setChecked(layer.distOff)
+        self.layerEditorDistOff.setChecked(layer.distOff)
         self.layerEditorVolumeSlider.setValue(layer.volume)
         self.layerMenuMuteBox.setChecked(layer.mute)
         self.layerEditorDetuneSlider.setValue(layer.detune)
         self.layerEditorStereoDelaySlider.setValue(layer.stereodelay)
+        self.layerEditorFreqHarmonic.setValue(layer.freqHarmonic)
 
         self.distMenuType.setCurrentText(layer.distType)
         self.distMenuEdit_PhaseModOff.setChecked(not layer.phasemodOff)
@@ -803,8 +835,38 @@ class MayDrumatizer(QWidget):
         if needPhasemodLayer:
             soloLayer[-1].mute = keepPhaseModSrcMute
 
+
+    def layerSelectMaster(self, masterSelect = True):
+        if masterSelect and self.layerMasterSelected:
+            self.layerMasterSelected = False
+            self.layerSelect(self.layerList.currentIndex().row())
+        else:
+            self.layerMasterSelected = masterSelect
+
+        if self.masterLayer() is None:
+            self.currentDrum().initMasterLayer()
+
+        if self.layerMasterSelected:
+            layer = self.masterLayer()
+            self.layerMasterEditorAmplOff.setChecked(layer.amplOff)
+            self.layerMasterEditorDistOff.setChecked(layer.distOff)
+            self.layerMasterEditorVolumeSlider.setValue(layer.volume)
+            self.layerEditorStack.setCurrentWidget(self.layerMasterEditor)
+        else:
+            layer = self.currentLayer()
+            self.layerEditorStack.setCurrentWidget(self.layerEditor)
+
+        self.distMenuType.setCurrentText(layer.distType)
+        if self.layerAmplEnv(layer) is not None:
+            self.layerMasterEditorAmplEnvList.setCurrentText(self.layerAmplEnv(layer).name)
+            self.amplEnvMenu_TryExpFitChkBox.setChecked(self.layerAmplEnv(layer).parameters['tryExpFit'])
+        if self.layerDistEnv(layer) is not None:
+            self.layerMasterEditorDistEnvList.setCurrentText(self.layerDistEnv(layer).name)
+
+
+
     def layerSetName(self, name):
-        self.currentLayer().adjust(name = name)
+        self.currentOrMasterLayer().adjust(name = name)
         self.layerUpdate()
 
     def layerRenameFresh(self):
@@ -819,12 +881,27 @@ class MayDrumatizer(QWidget):
         self.layerModel.justAddedNew = False
 
     def layerSetType(self, type):
-        self.currentLayer().adjust(type = type)
+        self.currentOrMasterLayer().adjust(type = type)
+        self.layerUpdate()
+
+    def layerSetAmplOff(self, state):
+        self.currentOrMasterLayer().adjust(amplOff = state)
+        if self.layerMasterSelected:
+            self.layerMasterEditorAmplEnvList.setEnabled(not state)
+        else:
+            self.layerEditorAmplEnvList.setEnabled(not state)
+        self.layerUpdate()
+
+    def layerSetFreqHarmonic(self, value):
+        self.currentOrMasterLayer().adjust(freqHarmonic = value)
         self.layerUpdate()
 
     def layerSetDistOff(self, state):
-        self.currentLayer().adjust(distOff = state)
-        self.layerChooseDistEnvList.setEnabled(not state)
+        self.currentOrMasterLayer().adjust(distOff = state)
+        if self.layerMasterSelected:
+            self.layerMasterEditorDistEnvList.setEnabled(not state)
+        else:
+            self.layerEditorDistEnvList.setEnabled(not state)
         self.layerUpdate()
 
     def layerSetMute(self, state):
@@ -832,37 +909,41 @@ class MayDrumatizer(QWidget):
         self.layerUpdate()
 
     def layerSetVolume(self, value):
-        self.currentLayer().adjust(volume = value)
-        self.layerEditorVolumeLabel.setText(f'{value}%')
+        self.currentOrMasterLayer().adjust(volume = value)
+        if self.layerMasterSelected:
+            self.layerMasterEditorVolumeLabel.setText(f'{value}%')
+            self.layerBtnMaster.setText(f'Master ({value}%)')
+        else:
+            self.layerEditorVolumeLabel.setText(f'{value}%')
         self.layerUpdate()
 
     def layerSetDetune(self, value):
-        self.currentLayer().adjust(detune = value)
+        self.currentOrMasterLayer().adjust(detune = value)
         self.layerEditorDetuneLabel.setText(f'{value}‰')
         self.layerUpdate()
 
     def layerSetStereoDelay(self, value):
-        self.currentLayer().adjust(stereodelay = value)
+        self.currentOrMasterLayer().adjust(stereodelay = value)
         self.layerEditorStereoDelayLabel.setText(f'{value}0 ppm' if value != 0 else '0 ppm')
         self.layerUpdate()
 
     def layerSetPhaseMod(self, state):
-        self.currentLayer().adjust(phasemodOff = (state != Qt.Checked))
+        self.currentOrMasterLayer().adjust(phasemodOff = (state != Qt.Checked))
         self.layerUpdate()
 
     def layerSetPhaseModAmt(self, value):
-        self.currentLayer().adjust(phasemodAmt = value)
+        self.currentOrMasterLayer().adjust(phasemodAmt = value)
         self.layerUpdate()
 
     def layerSetPhaseModSrc(self, index):
-        self.currentLayer().adjust(phasemodSrcHash = self.layerModel.hashList()[index])
+        self.currentOrMasterLayer().adjust(phasemodSrcHash = self.layerModel.hashList()[index])
         self.layerUpdate()
 
 
     def loadDistParams(self):
-        choice = self.currentLayer().distType
+        choice = self.currentOrMasterLayer().distType
         self.distMenuType.setCurrentText(choice)
-        distParam = self.currentLayer().distParam
+        distParam = self.currentOrMasterLayer().distParam
         if choice == 'Overdrive':
             self.distMenuEdit_OverdriveMaximum.setValue(distParam)
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_OverdriveMaximum)
@@ -884,7 +965,7 @@ class MayDrumatizer(QWidget):
 
     def updateDistParams(self, choice = None):
         if choice is None:
-            choice = self.currentLayer().distType
+            choice = self.currentOrMasterLayer().distType
 
         if choice == 'Overdrive':
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_OverdriveMaximum)
@@ -906,7 +987,7 @@ class MayDrumatizer(QWidget):
             self.distMenuEdit.setCurrentWidget(self.distMenuEdit_NA)
             distParam = None
 
-        self.currentLayer().adjust(distType = choice, distParam = distParam)
+        self.currentOrMasterLayer().adjust(distType = choice, distParam = distParam)
 
     def adjustDistEnvWidgetMaximum(self, value):
         self.maxValue['distortion'] = value
@@ -935,7 +1016,6 @@ class MayDrumatizer(QWidget):
 
     def amplEnvSelect(self, envelope):
         index = self.amplEnvModel.indexOf(envelope)
-        print(envelope.name, index)
         if index.isValid():
             self.amplEnvList.clearSelection()
             self.amplEnvList.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectCurrent)
@@ -944,7 +1024,10 @@ class MayDrumatizer(QWidget):
 
     def amplEnvSelectIndex(self, index):
         self.amplEnvList.selectionModel().setCurrentIndex(self.amplEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
-        self.currentLayer().amplEnvHash = self.currentAmplEnv()._hash
+        if self.layerMasterSelected:
+            self.masterLayer().amplEnvHash = self.currentAmplEnv()._hash
+        else:
+            self.currentLayer().amplEnvHash = self.currentAmplEnv()._hash
 
     def amplEnvInsertAndSelect(self, envelope, position = None):
         self.amplEnvModel.insertNew(envelope, position)
@@ -974,7 +1057,8 @@ class MayDrumatizer(QWidget):
             self.currentAmplEnv().adjust(name = name, pointNumber = pointNumber, singlePointValue = value)
 
             if assign:
-                self.layerChooseAmplEnvList.setCurrentIndex(self.amplEnvList.currentIndex().row())
+                envList = self.layerEditorAmplEnvList if not self.layerMasterSelected else self.layerMasterEditorAmplEnvList
+                envList.setCurrentIndex(self.amplEnvList.currentIndex().row())
 
             self.amplEnvUpdateWidget()
             self.amplEnvModel.dataChanged.emit(self.amplEnvList.currentIndex(), self.amplEnvList.currentIndex())
@@ -1035,7 +1119,10 @@ class MayDrumatizer(QWidget):
 
     def freqEnvSelectIndex(self, index):
         self.freqEnvList.selectionModel().setCurrentIndex(self.freqEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
-        self.currentLayer().freqEnvHash = self.currentFreqEnv()._hash
+        if self.layerMasterSelected:
+            pass
+        else:
+            self.currentLayer().freqEnvHash = self.currentFreqEnv()._hash
 
     def freqEnvInsertAndSelect(self, envelope, position = None):
         self.freqEnvModel.insertNew(envelope, position)
@@ -1065,7 +1152,8 @@ class MayDrumatizer(QWidget):
             self.currentFreqEnv().adjust(name = name, pointNumber = pointNumber, singlePointValue = value)
 
             if assign:
-                self.layerChooseFreqEnvList.setCurrentIndex(self.freqEnvList.currentIndex().row())
+                envList = self.layerEditorFreqEnvList if not self.layerMasterSelected else self.layerMasterEditorFreqEnvList
+                envList.setCurrentIndex(self.freqEnvList.currentIndex().row())
 
             self.freqEnvUpdateWidget()
             self.freqEnvModel.dataChanged.emit(self.freqEnvList.currentIndex(), self.freqEnvList.currentIndex())
@@ -1125,7 +1213,10 @@ class MayDrumatizer(QWidget):
 
     def distEnvSelectIndex(self, index):
         self.distEnvList.selectionModel().setCurrentIndex(self.distEnvModel.createIndex(index, 0), QItemSelectionModel.SelectCurrent)
-        self.currentLayer().distEnvHash = self.currentDistEnv()._hash
+        if self.layerMasterSelected:
+            self.masterLayer().distEnvHash = self.currentDistEnv()._hash
+        else:
+            self.currentLayer().distEnvHash = self.currentDistEnv()._hash
 
     def distEnvInsertAndSelect(self, envelope, position = None):
         self.distEnvModel.insertNew(envelope, position)
@@ -1155,7 +1246,8 @@ class MayDrumatizer(QWidget):
             self.currentDistEnv().adjust(name = name, pointNumber = pointNumber, singlePointValue = value)
 
             if assign:
-                self.layerChooseDistEnvList.setCurrentIndex(self.distEnvList.currentIndex().row())
+                envList = self.layerEditorDistEnvList if not self.layerMasterSelected else self.layerMasterEditorDistEnvList
+                envList.setCurrentIndex(self.distEnvList.currentIndex().row())
 
             self.distEnvUpdateWidget()
             self.distEnvModel.dataChanged.emit(self.distEnvList.currentIndex(), self.distEnvList.currentIndex())

@@ -1,7 +1,7 @@
 from PyQt5.QtCore import QAbstractListModel, Qt
 import json
 
-from LayerModel import LayerEncoder
+from LayerModel import LayerEncoder, Layer
 from EnvelopeModel import EnvelopeEncoder
 
 class Drum:
@@ -14,11 +14,10 @@ class Drum:
         self.releaseTime = 0
         # each drum holds an arbitrary amount of layers and envelopes of each kind
         self.layers = []
+        self.initMasterLayer()
         self.amplEnvs = []
         self.freqEnvs = []
         self.distEnvs = []
-        self.postprocPrefix = 'vel*('
-        self.postprocSuffix = ')'
         # '...' menu: enter name, type, option to purge unused envelopes, also the 'drum awesomeness', for the ranking ;)
         self.useSynDump = False
         self.synFileName = None
@@ -47,16 +46,14 @@ class Drum:
             self.freqEnvs = args['freqEnvs']
         if 'distEnvs' in args:
             self.distEnvs = args['distEnvs']
-        if 'postprocPrefix' in args:
-            self.postprocPrefix = args['postprocPrefix']
-        if 'postprocSuffix' in args:
-            self.postprocSuffix = args['postprocSuffix']
         if 'useSynDump' in args:
             self.useSynDump = args['useSynDump']
         if 'synFileName' in args:
             self.synFileName = args['synFileName']
         if 'synDrumName' in args:
             self.synDrumName = args['synDrumName']
+        if 'masterLayer' in args:
+            self.masterLayer = args['masterLayer']
 
     def addLayer(self, layer):
         self.layers.append(layer)
@@ -69,6 +66,9 @@ class Drum:
 
     def addDistEnv(self, env):
         self.distEnvs.append(env)
+
+    def initMasterLayer(self):
+        self.masterLayer = Layer(master = True)
 
 class DrumModel(QAbstractListModel):
 
@@ -158,8 +158,7 @@ class DrumEncoder(json.JSONEncoder):
                 'amplEnvs': json.dumps(obj.amplEnvs, cls = EnvelopeEncoder),
                 'freqEnvs': json.dumps(obj.freqEnvs, cls = EnvelopeEncoder),
                 'distEnvs': json.dumps(obj.distEnvs, cls = EnvelopeEncoder),
-                'postprocPrefix': obj.postprocPrefix,
-                'postprocSuffix': obj.postprocSuffix,
+                'masterLayer': json.dumps(obj.masterLayer, cls = LayerEncoder) if isinstance(obj.masterLayer, Layer) else '',
                 'useSynDump': obj.useSynDump,
                 'synFileName': obj.synFileName,
                 'synDrumName': obj.synDrumName,
@@ -177,8 +176,7 @@ class DrumEncoder(json.JSONEncoder):
             drum.freqEnvs = json.loads(dict['freqEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.distEnvs = json.loads(dict['distEnvs'], object_hook = EnvelopeEncoder.decode)
             drum.layers = json.loads(dict['layers'], object_hook = LayerEncoder.decode)
-            drum.postprocPrefix = dict.get('postprocPrefix', 'vel*(')
-            drum.postprocSuffix = dict.get('postprocSuffix', ')')
+            drum.masterLayer = json.loads(dict.get('masterLayer', '') or '', object_hook = LayerEncoder.decode)
             drum.useSynDump = dict.get('useSynDump', False)
             drum.synFileName = dict.get('synFileName', None)
             drum.synDrumName = dict.get('synDrumName', None)
