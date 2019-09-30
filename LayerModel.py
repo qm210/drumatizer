@@ -104,7 +104,8 @@ class Layer:
             'There is no off switch on the genius switch',
             'I think you are from Wuppertal',
             'Hat hier jemand die 2-1-0 gewählt??',
-            'Denken Sie an die Schande und dass Sie ruiniert werden können.'
+            'Denken Sie an die Schande und dass Sie ruiniert werden können.',
+            'Broken Heart Syndrome'
         ]
         sentences = [s for s in allSentences if s not in skip]
         if sentences:

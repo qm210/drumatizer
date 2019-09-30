@@ -283,21 +283,21 @@ class MayRenderer(QWidget):
         self.playing = True
         self.updatePlayingUI()
 
-        # this is the SUPER FUN BITCRUSHER for the test shader
-        nr_bits = randint(128, 8192)
-
         shaderSource = self.shaderHeader + """
+uniform float SPB;
 void main()
 {
    float t = (iBlockOffset + gl_FragCoord.x + gl_FragCoord.y*iTexSize) / iSampleRate;
    t = floor(t*BITS.) / BITS.;
-   vec2 s = .2 * vec2(sin(2.*3.14159*49.*t*(1.+t))); // let's make it fun and squeaky
+   vec2 s = .2 * vec2(sin(2.*3.14159*49.*t*(1.+t)*SPB*2.667)); // let's make it fun and squeaky
    vec2 v  = floor((0.5+0.5*s)*65535.0);
    vec2 vl = mod(v,256.0)/255.0;
    vec2 vh = floor(v/256.0)/255.0;
    gl_FragColor = vec4(vl.x,vh.x,vl.y,vh.y);
 }
 """
+        # this is the SUPER FUN BITCRUSHER for the test shader
+        nr_bits = randint(128, 8192)
         shaderSource = shaderSource.replace('BITS', str(nr_bits))
         print(nr_bits, 'bits for the SUPER FUN BITCRUSHER in the test shader.')
 
