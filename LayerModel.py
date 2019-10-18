@@ -105,7 +105,9 @@ class Layer:
             'I think you are from Wuppertal',
             'Hat hier jemand die 2-1-0 gewählt??',
             'Denken Sie an die Schande und dass Sie ruiniert werden können.',
-            'Broken Heart Syndrome'
+            'Broken Heart Syndrome',
+            'If you think this is just clipping, think again... this is QM ON PURPOSE',
+            'Bist auch DU Abfall?'
         ]
         sentences = [s for s in allSentences if s not in skip]
         if sentences:
