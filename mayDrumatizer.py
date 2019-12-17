@@ -864,7 +864,6 @@ class MayDrumatizer(QWidget):
             self.layerMasterEditorDistEnvList.setCurrentText(self.layerDistEnv(layer).name)
 
 
-
     def layerSetName(self, name):
         self.currentOrMasterLayer().adjust(name = name)
         self.layerUpdate()
@@ -1270,7 +1269,7 @@ class MayDrumatizer(QWidget):
     def distEnvRandomize(self):
         if self.anyDistEnv():
             env = self.currentDistEnv()
-            env.randomize(self.maxTime, self.minValue[env.type], self.maxValue[env.type])
+            env.randomize(self.maxTime[env.type], self.minValue[env.type], self.maxValue[env.type])
             self.distEnvWidget.update()
 
 

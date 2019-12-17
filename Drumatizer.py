@@ -199,7 +199,7 @@ class Drumatizer:
             return f'sinshape({layerClean}, {distEnv}, {distParam})'
         elif distType == 'Lo-Fi':
             distEnv = f'({distParam}*{distEnv})'
-            return layerClean.replace('_PROGTIME',f'lofi(_PROGTIME,{distEnv})')
+            return layerClean.replace('_PROGTIME',f'lofi(_PROGTIME,{distEnv})').replace('_t',f'lofi(_t,{distEnv})') # last substitution is a lazy hack, sorry to future me!
         elif distType == 'Saturation':
             return f's_atan({distParam}*{distEnv}*{layerClean})'
         else:
@@ -249,7 +249,7 @@ class Drumatizer:
         return term
 
     def expHoldDecayFit(self, env):
-        def expholdfunc(x, kappa):
+        def expholdfunc(x, kappa, hold):
             return np.exp(-kappa * np.maximum(x - hold, np.zeros_like(x)))
 
         attack = round(env.points[1].time, 3)

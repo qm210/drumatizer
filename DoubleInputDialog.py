@@ -29,13 +29,9 @@ class DoubleInputDialog(QtWidgets.QDialog):
 
         self.layout = QtWidgets.QVBoxLayout(self)
 
-        timeLabel = 'time / sec:' if self.replaceTimeLabel is None else self.replaceTimeLabel
+        timeLabel = 'time / sec:'
         self.layout.addWidget(QtWidgets.QLabel(timeLabel, self))
         self.timeBox = QtWidgets.QDoubleSpinBox(self)
-        self.timeBox.setDecimals(self.precision)
-        self.timeBox.setStepType(QtWidgets.QAbstractSpinBox.AdaptiveDecimalStepType)
-        self.timeBox.setValue(time)
-        self.timeBox.setEnabled(not fixedTime)
         self.layout.addWidget(self.timeBox)
 
         valueLabel = 'value:' if self.replaceValueLabel is None else self.replaceValueLabel
